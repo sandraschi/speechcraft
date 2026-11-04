@@ -52,6 +52,10 @@ pub struct SpeechCraftApp {
     pub live_confidence: f32,
     pub sensitivity_slider: f32,
 
+    // Zoom & Scaling
+    pub ui_zoom: f32,
+    pub visualizer_zoom: f32,
+
     // Audio Visualization Mock/Buffer State
     pub spec_analyzer: SpectrogramAnalyzer,
     pub simulated_spectrum: Vec<f32>,
@@ -98,6 +102,8 @@ impl SpeechCraftApp {
             live_rms: 0.0,
             live_confidence: 0.0,
             sensitivity_slider: 0.5,
+            ui_zoom: 1.0,
+            visualizer_zoom: 1.0,
             spec_analyzer,
             simulated_spectrum: sim,
             pitch_val: 0.0,
@@ -113,10 +119,47 @@ impl SpeechCraftApp {
 
 impl eframe::App for SpeechCraftApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        // High-Contrast Obsidian Theme
         if self.is_dark_theme {
-            ui.ctx().set_visuals(egui::Visuals::dark());
+            let mut visuals = egui::Visuals::dark();
+            visuals.panel_fill = Color32::from_rgb(10, 15, 29); // Deep Obsidian Slate
+            visuals.window_fill = Color32::from_rgb(13, 20, 36);
+            visuals.extreme_bg_color = Color32::from_rgb(6, 10, 20);
+
+            // High-contrast non-interactive background and crisp text
+            visuals.widgets.noninteractive.bg_fill = Color32::from_rgb(15, 23, 42);
+            visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0, Color32::from_rgb(45, 60, 85));
+            visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, Color32::from_rgb(248, 250, 252));
+
+            // Vibrant interactive widget states
+            visuals.widgets.inactive.bg_fill = Color32::from_rgb(19, 29, 49);
+            visuals.widgets.inactive.bg_stroke = egui::Stroke::new(1.0, Color32::from_rgb(56, 189, 248)); // Electric cyan
+            visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, Color32::from_rgb(241, 245, 249));
+
+            visuals.widgets.hovered.bg_fill = Color32::from_rgb(29, 45, 75);
+            visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.5, Color32::from_rgb(56, 189, 248));
+            visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.0, Color32::WHITE);
+
+            visuals.widgets.active.bg_fill = Color32::from_rgb(2, 132, 199);
+            visuals.widgets.active.bg_stroke = egui::Stroke::new(1.5, Color32::from_rgb(245, 158, 11)); // Amber highlight
+            visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0, Color32::WHITE);
+
+            visuals.selection.bg_fill = Color32::from_rgb(14, 116, 144);
+            visuals.selection.stroke = egui::Stroke::new(1.0, Color32::from_rgb(56, 189, 248));
+            ui.ctx().set_visuals(visuals);
         } else {
-            ui.ctx().set_visuals(egui::Visuals::light());
+            let mut visuals = egui::Visuals::light();
+            visuals.panel_fill = Color32::from_rgb(248, 250, 252);
+            visuals.window_fill = Color32::from_rgb(255, 255, 255);
+            visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0, Color32::from_rgb(203, 213, 225));
+            ui.ctx().set_visuals(visuals);
+        }
+
+        // Global Scroll Wheel Zoom: Ctrl + Mouse Wheel adjusts interface scale factor
+        let (scroll_delta, ctrl_pressed) = ui.input(|i| (i.smooth_scroll_delta.y, i.modifiers.ctrl));
+        if ctrl_pressed && scroll_delta.abs() > 0.1 {
+            self.ui_zoom = (self.ui_zoom + scroll_delta * 0.002).clamp(0.75, 2.25);
+            ui.ctx().set_zoom_factor(self.ui_zoom);
         }
 
         let cyan = Color32::from_rgb(56, 189, 248);
@@ -191,7 +234,7 @@ impl eframe::App for SpeechCraftApp {
                     }
                 });
 
-                // Right quick toggles
+                // Right quick toggles: Locale, Theme, Auth, Port
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     let cur_loc = self.locale;
                     let loc_label = format!("{} {}", cur_loc.flag(), cur_loc.code().to_uppercase());
@@ -223,7 +266,7 @@ impl eframe::App for SpeechCraftApp {
             });
         });
 
-        // 2. SUB-BAR: Studio Screen Tabs & Acoustic Telemetry
+        // 2. SUB-BAR: Studio Screen Tabs & Acoustic Telemetry + Interactive Zoom Controls
         egui::Panel::top("sub_bar").show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.strong(egui::RichText::new("⚡ SPEECHCRAFT STUDIO").color(cyan).size(16.0));
@@ -241,13 +284,30 @@ impl eframe::App for SpeechCraftApp {
                     }
                 }
 
+                ui.separator();
+                // Interactive Zoom Controls (Scroll Wheel / Buttons)
+                let zoom_pct = (self.ui_zoom * 100.0).round() as i32;
+                ui.label(egui::RichText::new(format!("🔍 {}: {zoom_pct}%", i18n::t(I18nKey::ZoomLabel, loc))).color(cyan));
+                if ui.small_button("➖").on_hover_text("Zoom Out (or Ctrl + Scroll Down)").clicked() {
+                    self.ui_zoom = (self.ui_zoom - 0.1).clamp(0.75, 2.25);
+                    ui.ctx().set_zoom_factor(self.ui_zoom);
+                }
+                if ui.small_button("100%").on_hover_text("Reset Zoom to 100%").clicked() {
+                    self.ui_zoom = 1.0;
+                    ui.ctx().set_zoom_factor(1.0);
+                }
+                if ui.small_button("➕").on_hover_text("Zoom In (or Ctrl + Scroll Up)").clicked() {
+                    self.ui_zoom = (self.ui_zoom + 0.1).clamp(0.75, 2.25);
+                    ui.ctx().set_zoom_factor(self.ui_zoom);
+                }
+
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     let wake_state_label = if self.engine.wake_coordinator.config.is_listening {
                         "🟢 WAKE ACTIVE"
                     } else {
                         "⚪ DORMANT"
                     };
-                    ui.label(egui::RichText::new(wake_state_label).strong().color(if self.engine.wake_coordinator.config.is_listening { Color32::GREEN } else { Color32::GRAY }));
+                    ui.label(egui::RichText::new(wake_state_label).strong().color(if self.engine.wake_coordinator.config.is_listening { Color32::from_rgb(34, 197, 94) } else { Color32::GRAY }));
                 });
             });
         });
@@ -284,151 +344,201 @@ impl SpeechCraftApp {
         ui.label("Real-time ambient vocal listener, full-duplex conversational barge-in, and wake word ingress.");
         ui.add_space(8.0);
 
-        // Acoustic Visualizer Panel
-        egui::Frame::canvas(ui.style()).fill(Color32::from_rgb(15, 23, 42)).show(ui, |ui| {
-            ui.set_min_size(Vec2::new(ui.available_width(), 100.0));
-            let painter = ui.painter();
-            let rect = ui.max_rect();
+        // Acoustic Visualizer Panel with Scroll Wheel Zoom
+        let (scroll_delta, ctrl_pressed) = ui.input(|i| (i.smooth_scroll_delta.y, i.modifiers.ctrl));
 
-            let bar_width = rect.width() / self.simulated_spectrum.len() as f32;
-            for (i, &mag) in self.simulated_spectrum.iter().enumerate() {
-                let h = mag * (rect.height() - 16.0);
-                let bar_rect = egui::Rect::from_min_size(
-                    egui::pos2(rect.min.x + i as f32 * bar_width, rect.max.y - h - 8.0),
-                    Vec2::new(bar_width - 2.0, h),
+        let canvas_response = egui::Frame::canvas(ui.style())
+            .fill(Color32::from_rgb(6, 10, 20))
+            .stroke(egui::Stroke::new(1.5, Color32::from_rgb(56, 189, 248)))
+            .show(ui, |ui| {
+                ui.set_min_size(Vec2::new(ui.available_width(), 110.0));
+                let painter = ui.painter();
+                let rect = ui.max_rect();
+
+                // Subtle grid lines with electric cyan glow
+                for row in 1..4 {
+                    let y = rect.min.y + (rect.height() / 4.0) * row as f32;
+                    painter.line_segment(
+                        [egui::pos2(rect.min.x, y), egui::pos2(rect.max.x, y)],
+                        egui::Stroke::new(1.0, Color32::from_rgba_unmultiplied(56, 189, 248, 25)),
+                    );
+                }
+
+                let bar_width = rect.width() / self.simulated_spectrum.len() as f32;
+                for (i, &raw_mag) in self.simulated_spectrum.iter().enumerate() {
+                    let mag = (raw_mag * self.visualizer_zoom).clamp(0.04, 1.0);
+                    let h = mag * (rect.height() - 20.0);
+                    let bar_rect = egui::Rect::from_min_size(
+                        egui::pos2(rect.min.x + i as f32 * bar_width, rect.max.y - h - 8.0),
+                        Vec2::new((bar_width - 2.0).max(1.0), h),
+                    );
+
+                    // High-contrast electric gradient: Neon Cyan -> Vivid Amber -> Hot Rose
+                    let color = if mag > 0.82 {
+                        Color32::from_rgb(244, 63, 94) // Hot Rose
+                    } else if mag > 0.55 {
+                        Color32::from_rgb(251, 191, 36) // Vivid Amber
+                    } else {
+                        Color32::from_rgb(0, 240, 255) // Neon Electric Cyan
+                    };
+                    painter.rect_filled(bar_rect, 2.0, color);
+                }
+
+                // High-contrast zoom scale telemetry overlay
+                painter.text(
+                    egui::pos2(rect.min.x + 8.0, rect.min.y + 6.0),
+                    egui::Align2::LEFT_TOP,
+                    format!("Visualizer Scale: {:.1}x (Hover & scroll wheel to zoom)", self.visualizer_zoom),
+                    egui::FontId::monospace(10.0),
+                    Color32::from_rgb(148, 163, 184),
                 );
-                let color = if mag > 0.75 { gold } else { cyan };
-                painter.rect_filled(bar_rect, 2.0, color);
-            }
-        });
+            });
+
+        // Hover wheel zoom on visualizer canvas
+        if canvas_response.response.hovered() && !ctrl_pressed && scroll_delta.abs() > 0.1 {
+            self.visualizer_zoom = (self.visualizer_zoom + scroll_delta * 0.05).clamp(0.5, 3.0);
+        }
 
         ui.add_space(12.0);
 
-        // Hardware Audio Ingress Card
-        egui::Frame::group(ui.style()).show(ui, |ui| {
-            ui.heading("Hardware Audio Ingress & Microphone Stream");
-            ui.horizontal(|ui| {
-                ui.label("Input Device:");
-                let current_dev_name = self
-                    .input_devices
-                    .get(self.selected_device_idx)
-                    .map(|d| d.name.as_str())
-                    .unwrap_or("Default System Microphone");
+        // Hardware Audio Ingress Card (High Contrast)
+        egui::Frame::group(ui.style())
+            .fill(Color32::from_rgb(15, 23, 42))
+            .stroke(egui::Stroke::new(1.0, Color32::from_rgb(37, 52, 77)))
+            .show(ui, |ui| {
+                ui.heading(egui::RichText::new(i18n::t(I18nKey::HardwareIngress, loc)).color(cyan));
+                ui.horizontal(|ui| {
+                    ui.label(format!("{}:", i18n::t(I18nKey::InputDevice, loc)));
+                    let current_dev_name = self
+                        .input_devices
+                        .get(self.selected_device_idx)
+                        .map(|d| d.name.as_str())
+                        .unwrap_or("Default System Microphone");
 
-                egui::ComboBox::from_id_salt("mic_device_selector")
-                    .selected_text(current_dev_name)
-                    .show_ui(ui, |ui| {
-                        for (idx, dev) in self.input_devices.iter().enumerate() {
-                            let label = if dev.is_default {
-                                format!("{} (Default)", dev.name)
-                            } else {
-                                dev.name.clone()
-                            };
-                            ui.selectable_value(&mut self.selected_device_idx, idx, label);
-                        }
-                    });
-
-                if ui.button("🔄 Refresh Devices").clicked() {
-                    self.input_devices = self.engine.capture_manager.list_input_devices();
-                    self.status_msg = format!("Found {} audio input device(s)", self.input_devices.len());
-                }
-            });
-
-            ui.add_space(6.0);
-            ui.horizontal(|ui| {
-                let is_capturing = self.is_capturing_mic;
-                let btn_text = if is_capturing { "⏹️ Stop Microphone" } else { "🎙️ Start Continuous Mic" };
-                if ui.button(btn_text).clicked() {
-                    if is_capturing {
-                        self.engine.capture_manager.stop_capture();
-                        self.is_capturing_mic = false;
-                        self.status_msg = "Microphone streaming stopped".to_string();
-                    } else {
-                        let dev_name = self.input_devices.get(self.selected_device_idx).map(|d| d.name.as_str());
-                        let ring = std::sync::Arc::new(std::sync::Mutex::new(self.engine.wake_coordinator.ring_buffer.clone()));
-                        match self.engine.capture_manager.start_capture(dev_name, ring) {
-                            Ok(name) => {
-                                self.is_capturing_mic = true;
-                                self.status_msg = format!("Microphone capture active: '{name}'");
+                    egui::ComboBox::from_id_salt("mic_device_selector")
+                        .selected_text(current_dev_name)
+                        .show_ui(ui, |ui| {
+                            for (idx, dev) in self.input_devices.iter().enumerate() {
+                                let label = if dev.is_default {
+                                    format!("{} (Default)", dev.name)
+                                } else {
+                                    dev.name.clone()
+                                };
+                                ui.selectable_value(&mut self.selected_device_idx, idx, label);
                             }
-                            Err(e) => {
-                                self.status_msg = format!("Audio capture unavailable: {e}");
+                        });
+
+                    if ui.button(i18n::t(I18nKey::Refresh, loc)).clicked() {
+                        self.input_devices = self.engine.capture_manager.list_input_devices();
+                        self.status_msg = format!("Found {} audio input device(s)", self.input_devices.len());
+                    }
+                });
+
+                ui.add_space(6.0);
+                ui.horizontal(|ui| {
+                    let is_capturing = self.is_capturing_mic;
+                    let btn_text = if is_capturing {
+                        i18n::t(I18nKey::StopMic, loc)
+                    } else {
+                        i18n::t(I18nKey::StartMic, loc)
+                    };
+                    if ui.button(btn_text).clicked() {
+                        if is_capturing {
+                            self.engine.capture_manager.stop_capture();
+                            self.is_capturing_mic = false;
+                            self.status_msg = "Microphone streaming stopped".to_string();
+                        } else {
+                            let dev_name = self.input_devices.get(self.selected_device_idx).map(|d| d.name.as_str());
+                            let ring = std::sync::Arc::new(std::sync::Mutex::new(self.engine.wake_coordinator.ring_buffer.clone()));
+                            match self.engine.capture_manager.start_capture(dev_name, ring) {
+                                Ok(name) => {
+                                    self.is_capturing_mic = true;
+                                    self.status_msg = format!("Microphone capture active: '{name}'");
+                                }
+                                Err(e) => {
+                                    self.status_msg = format!("Audio capture unavailable: {e}");
+                                }
                             }
                         }
                     }
-                }
 
-                ui.separator();
-                let vad_status = if self.live_rms > 0.02 { "🟢 SPEECH" } else { "⚪ QUIET" };
-                ui.label(format!("VAD: {vad_status}"));
-                ui.separator();
-                ui.label(format!("RMS: {:.3}", self.live_rms));
-                ui.separator();
-                ui.label(format!("Keyword Match: {:.1}%", self.live_confidence * 100.0));
-            });
+                    ui.separator();
+                    let vad_status = if self.live_rms > 0.02 { "🟢 SPEECH" } else { "⚪ QUIET" };
+                    ui.label(format!("VAD: {vad_status}"));
+                    ui.separator();
+                    ui.label(format!("RMS: {:.3}", self.live_rms));
+                    ui.separator();
+                    ui.label(format!("Keyword Match: {:.1}%", self.live_confidence * 100.0));
+                });
 
-            ui.add_space(6.0);
-            ui.horizontal(|ui| {
-                ui.label("Keyword Sensitivity:");
-                if ui.add(egui::Slider::new(&mut self.sensitivity_slider, 0.0..=1.0)).changed() {
-                    self.engine.wake_coordinator.config.sensitivity = self.sensitivity_slider;
-                }
-            });
-        });
-
-        ui.add_space(12.0);
-
-        // Wake Word Controls Card
-        egui::Frame::group(ui.style()).show(ui, |ui| {
-            ui.heading("Acoustic Ingress & Wake Word Configuration");
-            ui.horizontal(|ui| {
-                ui.label("Wake Keyword:");
-                ui.strong(self.engine.wake_coordinator.config.keyword.as_str());
-                ui.separator();
-                ui.label("Sensitivity:");
-                ui.strong(format!("{:.2}", self.engine.wake_coordinator.config.sensitivity));
-                ui.separator();
-                ui.label("Spoken Greeting:");
-                ui.strong(&self.engine.wake_coordinator.config.wake_greeting);
-                ui.separator();
-                ui.label("Sleep Trigger:");
-                ui.strong(&self.engine.wake_coordinator.config.sleep_keyword);
-            });
-
-            ui.add_space(6.0);
-            ui.horizontal(|ui| {
-                if ui.button("⚡ Simulate Wake Trigger").clicked() {
-                    let greet = self.engine.wake_coordinator.trigger_wake();
-                    self.status_msg = format!("Wake triggered! Spoken response: '{greet}'");
-                }
-                if ui.button("🌙 Simulate Sleep Command").clicked() {
-                    let msg = self.engine.wake_coordinator.trigger_sleep();
-                    self.status_msg = format!("Sleep triggered! '{msg}'");
-                }
-            });
-        });
-
-        ui.add_space(12.0);
-
-        // Voice Command Bus Simulation Card
-        egui::Frame::group(ui.style()).show(ui, |ui| {
-            ui.heading("Voice Command Bus (Router: 10996)");
-            ui.horizontal(|ui| {
-                ui.label("Utterance:");
-                ui.text_edit_singleline(&mut self.manual_voice_command);
-                if ui.button("🚀 Dispatch to Fleet Agent").clicked() {
-                    let current_epoch = 1793775000;
-                    let intent = self.engine.wake_coordinator.extract_intent(&self.manual_voice_command, current_epoch);
-                    let res = self.engine.voice_bus.route_intent(intent);
-                    self.status_msg = format!("Routed to '{}'! Spoken Reply: '{}'", res.receiver, res.reply_spoken_text);
-                }
-            });
-
-            if let Some(reply) = &self.engine.voice_bus.last_reply {
                 ui.add_space(6.0);
-                ui.label(egui::RichText::new(format!("Last Spoken Reply: \"{reply}\"")).color(cyan).strong());
-            }
-        });
+                ui.horizontal(|ui| {
+                    ui.label("Keyword Sensitivity:");
+                    if ui.add(egui::Slider::new(&mut self.sensitivity_slider, 0.0..=1.0)).changed() {
+                        self.engine.wake_coordinator.config.sensitivity = self.sensitivity_slider;
+                    }
+                });
+            });
+
+        ui.add_space(12.0);
+
+        // Wake Word Controls Card (High Contrast)
+        egui::Frame::group(ui.style())
+            .fill(Color32::from_rgb(15, 23, 42))
+            .stroke(egui::Stroke::new(1.0, Color32::from_rgb(37, 52, 77)))
+            .show(ui, |ui| {
+                ui.heading(egui::RichText::new("Acoustic Ingress & Wake Word Configuration").color(cyan));
+                ui.horizontal(|ui| {
+                    ui.label(format!("{}:", i18n::t(I18nKey::WakeWord, loc)));
+                    ui.strong(egui::RichText::new(self.engine.wake_coordinator.config.keyword.as_str()).color(gold));
+                    ui.separator();
+                    ui.label("Sensitivity:");
+                    ui.strong(format!("{:.2}", self.engine.wake_coordinator.config.sensitivity));
+                    ui.separator();
+                    ui.label(format!("{}:", i18n::t(I18nKey::Greeting, loc)));
+                    ui.strong(&self.engine.wake_coordinator.config.wake_greeting);
+                    ui.separator();
+                    ui.label(format!("{}:", i18n::t(I18nKey::SleepWord, loc)));
+                    ui.strong(&self.engine.wake_coordinator.config.sleep_keyword);
+                });
+
+                ui.add_space(6.0);
+                ui.horizontal(|ui| {
+                    if ui.button("⚡ Simulate Wake Trigger").clicked() {
+                        let greet = self.engine.wake_coordinator.trigger_wake();
+                        self.status_msg = format!("Wake triggered! Spoken response: '{greet}'");
+                    }
+                    if ui.button("🌙 Simulate Sleep Command").clicked() {
+                        let msg = self.engine.wake_coordinator.trigger_sleep();
+                        self.status_msg = format!("Sleep triggered! '{msg}'");
+                    }
+                });
+            });
+
+        ui.add_space(12.0);
+
+        // Voice Command Bus Simulation Card (High Contrast)
+        egui::Frame::group(ui.style())
+            .fill(Color32::from_rgb(15, 23, 42))
+            .stroke(egui::Stroke::new(1.0, Color32::from_rgb(37, 52, 77)))
+            .show(ui, |ui| {
+                ui.heading(egui::RichText::new(i18n::t(I18nKey::VoiceCommandBusTitle, loc)).color(cyan));
+                ui.horizontal(|ui| {
+                    ui.label("Utterance:");
+                    ui.text_edit_singleline(&mut self.manual_voice_command);
+                    if ui.button(i18n::t(I18nKey::DispatchToFleet, loc)).clicked() {
+                        let current_epoch = 1793775000;
+                        let intent = self.engine.wake_coordinator.extract_intent(&self.manual_voice_command, current_epoch);
+                        let res = self.engine.voice_bus.route_intent(intent);
+                        self.status_msg = format!("Routed to '{}'! Spoken Reply: '{}'", res.receiver, res.reply_spoken_text);
+                    }
+                });
+
+                if let Some(reply) = &self.engine.voice_bus.last_reply {
+                    ui.add_space(6.0);
+                    ui.label(egui::RichText::new(format!("Last Spoken Reply: \"{reply}\"")).color(cyan).strong());
+                }
+            });
     }
 
     fn render_prosody_sculptor(&mut self, ui: &mut egui::Ui) {
@@ -499,18 +609,21 @@ impl SpeechCraftApp {
         ui.add_space(12.0);
 
         for item in &self.engine.timeline {
-            egui::Frame::group(ui.style()).show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.strong(format!("#{:02}", item.paragraph_idx + 1));
-                    ui.label(format!("Speaker: {}", item.speaker_voice_id));
-                    ui.separator();
-                    ui.label(format!("Duration: {:.1}s", item.audio_duration_ms as f32 / 1000.0));
-                    ui.separator();
-                    ui.label(format!("Loudness: {:.1} LUFS", item.target_lufs));
+            egui::Frame::group(ui.style())
+                .fill(Color32::from_rgb(15, 23, 42))
+                .stroke(egui::Stroke::new(1.0, Color32::from_rgb(37, 52, 77)))
+                .show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.strong(egui::RichText::new(format!("#{:02}", item.paragraph_idx + 1)).color(Color32::from_rgb(56, 189, 248)));
+                        ui.label(format!("Speaker: {}", item.speaker_voice_id));
+                        ui.separator();
+                        ui.label(format!("Duration: {:.1}s", item.audio_duration_ms as f32 / 1000.0));
+                        ui.separator();
+                        ui.label(format!("Loudness: {:.1} LUFS", item.target_lufs));
+                    });
+                    ui.add_space(4.0);
+                    ui.label(egui::RichText::new(&item.raw_text).italics().color(Color32::from_rgb(241, 245, 249)));
                 });
-                ui.add_space(4.0);
-                ui.label(egui::RichText::new(&item.raw_text).italics());
-            });
             ui.add_space(6.0);
         }
 
@@ -540,33 +653,36 @@ impl SpeechCraftApp {
         ui.label("Enclave voiceprint biometric vault and fleet receiver matrix.");
         ui.add_space(12.0);
 
-        ui.heading("Registered Sovereign Voiceprints");
+        ui.heading(egui::RichText::new("Registered Sovereign Voiceprints").color(Color32::from_rgb(56, 189, 248)));
         for vp in &self.engine.voiceprints {
-            egui::Frame::group(ui.style()).show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.strong(&vp.name);
-                    ui.label(format!("Gender: {}", vp.gender));
-                    ui.separator();
-                    ui.label(format!("Accent: {}", vp.accent));
-                    ui.separator();
-                    ui.label(format!("Embedding: {}-dim", vp.embedding.len()));
-                    ui.separator();
-                    ui.label(format!("Confidence: {:.0}%", vp.similarity_confidence * 100.0));
+            egui::Frame::group(ui.style())
+                .fill(Color32::from_rgb(15, 23, 42))
+                .stroke(egui::Stroke::new(1.0, Color32::from_rgb(37, 52, 77)))
+                .show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.strong(egui::RichText::new(&vp.name).color(Color32::from_rgb(245, 158, 11)));
+                        ui.label(format!("Gender: {}", vp.gender));
+                        ui.separator();
+                        ui.label(format!("Accent: {}", vp.accent));
+                        ui.separator();
+                        ui.label(format!("Embedding: {}-dim", vp.embedding.len()));
+                        ui.separator();
+                        ui.label(format!("Confidence: {:.0}%", vp.similarity_confidence * 100.0));
+                    });
+                    ui.add_space(4.0);
+                    ui.horizontal(|ui| {
+                        if ui.button(format!("🧪 Test Biometric Match ({})", vp.profile_id)).clicked() {
+                            let synthetic = vec![0.15f32; 16_000];
+                            let res = self.engine.voiceprint_enclave.verify(&synthetic, &vp.embedding, &vp.profile_id);
+                            self.status_msg = format!(
+                                "Biometric check for {}: Match {:.1}%, Authenticated: {}",
+                                vp.profile_id,
+                                res.similarity * 100.0,
+                                if res.is_authenticated { "YES" } else { "NO" }
+                            );
+                        }
+                    });
                 });
-                ui.add_space(4.0);
-                ui.horizontal(|ui| {
-                    if ui.button(format!("🧪 Test Biometric Match ({})", vp.profile_id)).clicked() {
-                        let synthetic = vec![0.15f32; 16_000];
-                        let res = self.engine.voiceprint_enclave.verify(&synthetic, &vp.embedding, &vp.profile_id);
-                        self.status_msg = format!(
-                            "Biometric check for {}: Match {:.1}%, Authenticated: {}",
-                            vp.profile_id,
-                            res.similarity * 100.0,
-                            if res.is_authenticated { "YES" } else { "NO" }
-                        );
-                    }
-                });
-            });
             ui.add_space(6.0);
         }
     }
@@ -623,9 +739,21 @@ mod tests {
 
     #[test]
     fn test_speechcraft_app_init() {
-        let app = SpeechCraftApp::new().unwrap();
+        let mut app = SpeechCraftApp::new().unwrap();
         assert_eq!(app.current_screen, StudioScreen::Cockpit);
         assert_eq!(app.locale, AppLocale::En);
+        assert_eq!(app.ui_zoom, 1.0);
+        assert_eq!(app.visualizer_zoom, 1.0);
         assert!(!app.simulated_spectrum.is_empty());
+
+        // Test i18n switching
+        app.locale = AppLocale::De;
+        assert_eq!(app.locale.code(), "de");
+        app.locale = AppLocale::Ja;
+        assert_eq!(app.locale.code(), "ja");
+
+        // Test zoom adjustment
+        app.ui_zoom = 1.25;
+        assert_eq!(app.ui_zoom, 1.25);
     }
 }

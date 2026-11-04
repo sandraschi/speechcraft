@@ -104,6 +104,16 @@ pub enum I18nKey {
     ExportBroadcastMaster,
     SetTimer,
 
+    // Hardware & Voice Bus Controls
+    HardwareIngress,
+    InputDevice,
+    StartMic,
+    StopMic,
+    Refresh,
+    VoiceCommandBusTitle,
+    DispatchToFleet,
+    ZoomLabel,
+
     // Status & Readiness
     Authenticated,
     Guest,
@@ -284,6 +294,71 @@ pub fn t(key: I18nKey, locale: AppLocale) -> &'static str {
         (I18nKey::SetTimer, AppLocale::Ko) => "음성 타이머 설정",
         (I18nKey::SetTimer, AppLocale::Zh) => "设定语音报时定时器",
 
+        // Hardware & Voice Bus Controls
+        (I18nKey::HardwareIngress, AppLocale::En) => "Hardware Audio Ingress & Microphone Stream",
+        (I18nKey::HardwareIngress, AppLocale::De) => "Hardware-Audio-Eingang & Mikrofon-Stream",
+        (I18nKey::HardwareIngress, AppLocale::Fr) => "Entrée audio matérielle & flux microphone",
+        (I18nKey::HardwareIngress, AppLocale::Es) => "Entrada de audio hardware y flujo de micrófono",
+        (I18nKey::HardwareIngress, AppLocale::Ja) => "ハードウェア音声入力 & マイクストリーム",
+        (I18nKey::HardwareIngress, AppLocale::Ko) => "하드웨어 오디오 입력 및 마이크 스트림",
+        (I18nKey::HardwareIngress, AppLocale::Zh) => "硬件音频输入与麦克风流",
+
+        (I18nKey::InputDevice, AppLocale::En) => "Input Device",
+        (I18nKey::InputDevice, AppLocale::De) => "Eingabegerät",
+        (I18nKey::InputDevice, AppLocale::Fr) => "Périphérique d'entrée",
+        (I18nKey::InputDevice, AppLocale::Es) => "Dispositivo de entrada",
+        (I18nKey::InputDevice, AppLocale::Ja) => "入力デバイス",
+        (I18nKey::InputDevice, AppLocale::Ko) => "입력 장치",
+        (I18nKey::InputDevice, AppLocale::Zh) => "音频输入设备",
+
+        (I18nKey::StartMic, AppLocale::En) => "🎙️ Start Continuous Mic",
+        (I18nKey::StartMic, AppLocale::De) => "🎙️ Mikrofon-Aufnahme starten",
+        (I18nKey::StartMic, AppLocale::Fr) => "🎙️ Démarrer l'écoute micro",
+        (I18nKey::StartMic, AppLocale::Es) => "🎙️ Iniciar captura de micrófono",
+        (I18nKey::StartMic, AppLocale::Ja) => "🎙️ マイク入力を開始",
+        (I18nKey::StartMic, AppLocale::Ko) => "🎙️ 마이크 스트림 시작",
+        (I18nKey::StartMic, AppLocale::Zh) => "🎙️ 启动麦克风持续拾音",
+
+        (I18nKey::StopMic, AppLocale::En) => "⏹️ Stop Microphone",
+        (I18nKey::StopMic, AppLocale::De) => "⏹️ Mikrofon stoppen",
+        (I18nKey::StopMic, AppLocale::Fr) => "⏹️ Arrêter le microphone",
+        (I18nKey::StopMic, AppLocale::Es) => "⏹️ Detener micrófono",
+        (I18nKey::StopMic, AppLocale::Ja) => "⏹️ マイクを停止",
+        (I18nKey::StopMic, AppLocale::Ko) => "⏹️ 마이크 중지",
+        (I18nKey::StopMic, AppLocale::Zh) => "⏹️ 停止麦克风",
+
+        (I18nKey::Refresh, AppLocale::En) => "🔄 Refresh Devices",
+        (I18nKey::Refresh, AppLocale::De) => "🔄 Geräte aktualisieren",
+        (I18nKey::Refresh, AppLocale::Fr) => "🔄 Rafraîchir les périphériques",
+        (I18nKey::Refresh, AppLocale::Es) => "🔄 Actualizar dispositivos",
+        (I18nKey::Refresh, AppLocale::Ja) => "🔄 デバイス再検出",
+        (I18nKey::Refresh, AppLocale::Ko) => "🔄 장치 새로고침",
+        (I18nKey::Refresh, AppLocale::Zh) => "🔄 刷新设备列表",
+
+        (I18nKey::VoiceCommandBusTitle, AppLocale::En) => "Voice Command Bus (Router: 10996)",
+        (I18nKey::VoiceCommandBusTitle, AppLocale::De) => "Sprachbefehl-Bus (Router: 10996)",
+        (I18nKey::VoiceCommandBusTitle, AppLocale::Fr) => "Bus de commandes vocales (Routeur: 10996)",
+        (I18nKey::VoiceCommandBusTitle, AppLocale::Es) => "Bus de comandos de voz (Enrutador: 10996)",
+        (I18nKey::VoiceCommandBusTitle, AppLocale::Ja) => "音声コマンドバス (ルーター: 10996)",
+        (I18nKey::VoiceCommandBusTitle, AppLocale::Ko) => "음성 명령 버스 (라우터: 10996)",
+        (I18nKey::VoiceCommandBusTitle, AppLocale::Zh) => "语音指令总线 (路由: 10996)",
+
+        (I18nKey::DispatchToFleet, AppLocale::En) => "🚀 Dispatch to Fleet Agent",
+        (I18nKey::DispatchToFleet, AppLocale::De) => "🚀 An Flotten-Agent senden",
+        (I18nKey::DispatchToFleet, AppLocale::Fr) => "🚀 Transmettre à l'agent de flotte",
+        (I18nKey::DispatchToFleet, AppLocale::Es) => "🚀 Despachar a agente de flota",
+        (I18nKey::DispatchToFleet, AppLocale::Ja) => "🚀 フリートエージェントへ送信",
+        (I18nKey::DispatchToFleet, AppLocale::Ko) => "🚀 함대 에이전트로 전송",
+        (I18nKey::DispatchToFleet, AppLocale::Zh) => "🚀 发送至舰队智能体",
+
+        (I18nKey::ZoomLabel, AppLocale::En) => "Zoom",
+        (I18nKey::ZoomLabel, AppLocale::De) => "Zoom",
+        (I18nKey::ZoomLabel, AppLocale::Fr) => "Zoom",
+        (I18nKey::ZoomLabel, AppLocale::Es) => "Zoom",
+        (I18nKey::ZoomLabel, AppLocale::Ja) => "ズーム",
+        (I18nKey::ZoomLabel, AppLocale::Ko) => "확대/축소",
+        (I18nKey::ZoomLabel, AppLocale::Zh) => "视口缩放",
+
         // Status & Readiness
         (I18nKey::Authenticated, AppLocale::En) => "Sovereign Voice Operator",
         (I18nKey::Authenticated, AppLocale::De) => "Souveräner Sprach-Operator",
@@ -326,6 +401,9 @@ mod tests {
             assert!(!t(I18nKey::Cockpit, *loc).is_empty());
             assert!(!t(I18nKey::WakeWord, *loc).is_empty());
             assert!(!t(I18nKey::SpeakText, *loc).is_empty());
+            assert!(!t(I18nKey::HardwareIngress, *loc).is_empty());
+            assert!(!t(I18nKey::StartMic, *loc).is_empty());
+            assert!(!t(I18nKey::ZoomLabel, *loc).is_empty());
             assert!(!t(I18nKey::StatusReady, *loc).is_empty());
         }
     }
