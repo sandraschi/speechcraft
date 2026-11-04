@@ -1,0 +1,23 @@
+[package]
+name = "speechcraft-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "speechcraft"
+path = "src/main.rs"
+
+[dependencies]
+speechcraft-core = { path = "../speechcraft-core" }
+speechcraft-dsp = { path = "../speechcraft-dsp" }
+databasecraft-store.workspace = true
+databasecraft-core.workspace = true
+eframe.workspace = true
+egui.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+clap.workspace = true
+chrono.workspace = true
