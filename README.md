@@ -17,12 +17,32 @@ SpeechCraft delivers low-latency, zero-panic, pure-Rust voice capabilities to th
 ## Getting Started
 
 ```powershell
-# Run all workspace tests
-cargo test --workspace
+# Run all workspace tests and MCP smoke verification
+.\start.ps1 -Smoke
 
 # Start the native GPU Desktop Studio
-cargo run -p speechcraft-app
+.\start.ps1
 
-# Start the FastMCP server
-cargo run -p speechcraft-mcp -- --control 14132
+# Start the FastMCP stdio server (Port 14132)
+.\start.ps1 -Headless
+
+# Synthesize speech directly via CLI
+cargo run -p speechcraft-mcp -- --synthesize "Hello fleet sovereign"
+
+# Enumerate physical microphone input devices
+cargo run -p speechcraft-mcp -- --list-devices
 ```
+
+## FastMCP Tools (Port 14132)
+
+SpeechCraft exposes standard MCP 2024-11-05 JSON-RPC tools over stdio:
+
+- `speechcraft_status`: Get studio status, active wake word, sensitivity, and control port.
+- `speechcraft_list_audio_devices`: Enumerate physical input microphones and audio interfaces.
+- `speechcraft_configure_wake`: Configure keyword (`wakeywakey`, `hey_jarvis`, `alexa`, `hey_mycroft`), sensitivity, and greeting.
+- `speechcraft_route_intent`: Route natural voice commands to fleet agent bus (`10996`).
+- `speechcraft_synthesize`: Synthesize vocal audio with prosody shaping and optional host speaker playback.
+- `speechcraft_export_wav`: Generate broadcast-mastered EBU R128 (-16 LUFS) WAV byte buffer.
+- `speechcraft_verify_voiceprint`: Authenticate 16kHz audio against enrolled biometric voiceprints.
+- `speechcraft_list_voiceprints`: List registered voiceprints and 32-dim biometric embeddings.
+- `speechcraft_timeline_manage`: Manage spoken literature multitrack timeline paragraphs.

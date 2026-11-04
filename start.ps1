@@ -14,6 +14,8 @@ try {
     if ($Smoke) {
         Write-Host "Running SpeechCraft smoke check on Port $Port..."
         & $cargo test --workspace
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        & $cargo run -p speechcraft-mcp -- --smoke --control $Port
         exit $LASTEXITCODE
     }
 
