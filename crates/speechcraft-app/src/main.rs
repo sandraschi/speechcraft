@@ -70,7 +70,40 @@ pub struct SpeechCraftApp {
 
     // Voice Command Input
     pub manual_voice_command: String,
+    pub dispatch_history: Vec<(String, String, String)>, // (receiver, transcript, reply)
+
+    // Visualizer animation
+    pub viz_mode: VisualizerMode,
+    pub anim_phase: f32,
+
+    // Timeline editor
+    pub new_paragraph_text: String,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VisualizerMode {
+    Spectrum,
+    Oscilloscope,
+    VuMeter,
+}
+
+/// Built-in prosody presets: (name, pitch, rate, warmth, breathiness, gravity).
+pub const PROSODY_PRESETS: [(&str, f32, f32, f32, f32, f32); 5] = [
+    ("Sovereign Mistress", 1.0, 1.0, 0.75, 0.30, 0.65),
+    ("Fritz Core", -2.0, 1.1, 0.45, 0.15, 0.85),
+    ("Audiobook Narrator", 0.0, 0.95, 0.80, 0.20, 0.50),
+    ("Intimate Whisper", 0.5, 0.90, 0.30, 0.85, 0.20),
+    ("Tactical Alarm", 3.0, 1.30, 0.20, 0.10, 0.90),
+];
+
+/// Quick fleet commands for the palette.
+pub const QUICK_COMMANDS: [&str; 5] = [
+    "fritz gpu status",
+    "robotcraft patrol 360",
+    "codercraft inspect cargo",
+    "calibre search Sovereign AI",
+    "plexy play ambient",
+];
 
 impl SpeechCraftApp {
     pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
@@ -113,6 +146,10 @@ impl SpeechCraftApp {
             gravity_val: 0.55,
             preview_text: "SpeechCraft delivers pristine sovereign voice to the ArtCraft fleet.".to_string(),
             manual_voice_command: "fritz gpu status".to_string(),
+            dispatch_history: Vec::new(),
+            viz_mode: VisualizerMode::Spectrum,
+            anim_phase: 0.0,
+            new_paragraph_text: String::new(),
         })
     }
 }
@@ -344,7 +381,21 @@ impl SpeechCraftApp {
         ui.label("Real-time ambient vocal listener, full-duplex conversational barge-in, and wake word ingress.");
         ui.add_space(8.0);
 
-        // Acoustic Visualizer Panel with Scroll Wheel Zoom
+        // Continuous animation
+        self.anim_phase = (self.anim_phase + 0.05) % (std::f32::consts::TAU * 100.0);
+        ui.ctx().request_repaint();
+
+        ui.horizontal(|ui| {
+            for (mode, label) in [
+                (VisualizerMode::Spectrum, "📊 Spectrum"),
+                (VisualizerMode::Oscilloscope, "〰 Oscilloscope"),
+                (VisualizerMode::VuMeter, "🎚 VU Meter"),
+            ] {
+                if ui.selectable_label(self.viz_mode == mode, label).clicked() {
+                    self.viz_mode = mode;
+                }
+            }
+        });
         let (scroll_delta, ctrl_pressed) = ui.input(|i| (i.smooth_scroll_delta.y, i.modifiers.ctrl));
 
         let canvas_response = egui::Frame::canvas(ui.style())
@@ -364,24 +415,71 @@ impl SpeechCraftApp {
                     );
                 }
 
-                let bar_width = rect.width() / self.simulated_spectrum.len() as f32;
-                for (i, &raw_mag) in self.simulated_spectrum.iter().enumerate() {
-                    let mag = (raw_mag * self.visualizer_zoom).clamp(0.04, 1.0);
-                    let h = mag * (rect.height() - 20.0);
-                    let bar_rect = egui::Rect::from_min_size(
-                        egui::pos2(rect.min.x + i as f32 * bar_width, rect.max.y - h - 8.0),
-                        Vec2::new((bar_width - 2.0).max(1.0), h),
-                    );
-
-                    // High-contrast electric gradient: Neon Cyan -> Vivid Amber -> Hot Rose
-                    let color = if mag > 0.82 {
-                        Color32::from_rgb(244, 63, 94) // Hot Rose
-                    } else if mag > 0.55 {
-                        Color32::from_rgb(251, 191, 36) // Vivid Amber
-                    } else {
-                        Color32::from_rgb(0, 240, 255) // Neon Electric Cyan
-                    };
-                    painter.rect_filled(bar_rect, 2.0, color);
+                let n = self.simulated_spectrum.len().max(1);
+                let phase = self.anim_phase;
+                let zoom = self.visualizer_zoom;
+                let level = if self.is_capturing_mic { (self.live_rms * 8.0).clamp(0.0, 1.0) } else { 0.35 };
+                match self.viz_mode {
+                    VisualizerMode::Spectrum => {
+                        let bar_width = rect.width() / n as f32;
+                        for (i, &raw_mag) in self.simulated_spectrum.iter().enumerate() {
+                            let wob = 0.75 + 0.25 * (phase + i as f32 * 0.35).sin();
+                            let mag = (raw_mag * zoom * wob).clamp(0.04, 1.0);
+                            let h = mag * (rect.height() - 20.0);
+                            let bar_rect = egui::Rect::from_min_size(
+                                egui::pos2(rect.min.x + i as f32 * bar_width, rect.max.y - h - 8.0),
+                                Vec2::new((bar_width - 2.0).max(1.0), h),
+                            );
+                            let color = if mag > 0.82 {
+                                Color32::from_rgb(244, 63, 94)
+                            } else if mag > 0.55 {
+                                Color32::from_rgb(251, 191, 36)
+                            } else {
+                                Color32::from_rgb(0, 240, 255)
+                            };
+                            // Soft glow underlay, then crisp bar
+                            let glow = bar_rect.expand(2.0);
+                            painter.rect_filled(glow, 3.0, Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), 40));
+                            painter.rect_filled(bar_rect, 2.0, color);
+                        }
+                    }
+                    VisualizerMode::Oscilloscope => {
+                        let steps = 160;
+                        let mid = rect.center().y;
+                        let amp = (rect.height() * 0.4) * level.max(0.15) * zoom.min(2.0);
+                        let pts: Vec<egui::Pos2> = (0..=steps)
+                            .map(|k| {
+                                let t = k as f32 / steps as f32;
+                                let x = rect.min.x + t * rect.width();
+                                let y = mid
+                                    + amp * ((t * 18.0 + phase * 2.0).sin() * 0.6 + (t * 41.0 - phase * 3.0).sin() * 0.4);
+                                egui::pos2(x, y)
+                            })
+                            .collect();
+                        painter.add(egui::Shape::line(pts.clone(), egui::Stroke::new(5.0, Color32::from_rgba_unmultiplied(0, 240, 255, 40))));
+                        painter.add(egui::Shape::line(pts, egui::Stroke::new(2.0, Color32::from_rgb(0, 240, 255))));
+                    }
+                    VisualizerMode::VuMeter => {
+                        let segs = 32;
+                        let lit = (level * zoom.min(2.0) * segs as f32).round() as usize;
+                        let seg_w = rect.width() / segs as f32;
+                        for s in 0..segs {
+                            let on = s < lit.min(segs);
+                            let base = if s > 26 {
+                                Color32::from_rgb(244, 63, 94)
+                            } else if s > 18 {
+                                Color32::from_rgb(251, 191, 36)
+                            } else {
+                                Color32::from_rgb(0, 240, 255)
+                            };
+                            let c = if on { base } else { Color32::from_rgba_unmultiplied(base.r(), base.g(), base.b(), 30) };
+                            let r = egui::Rect::from_min_size(
+                                egui::pos2(rect.min.x + s as f32 * seg_w, rect.center().y - 18.0),
+                                Vec2::new((seg_w - 3.0).max(1.0), 36.0),
+                            );
+                            painter.rect_filled(r, 3.0, c);
+                        }
+                    }
                 }
 
                 // High-contrast zoom scale telemetry overlay
@@ -527,10 +625,19 @@ impl SpeechCraftApp {
                     ui.label("Utterance:");
                     ui.text_edit_singleline(&mut self.manual_voice_command);
                     if ui.button(i18n::t(I18nKey::DispatchToFleet, loc)).clicked() {
-                        let current_epoch = 1793775000;
-                        let intent = self.engine.wake_coordinator.extract_intent(&self.manual_voice_command, current_epoch);
-                        let res = self.engine.voice_bus.route_intent(intent);
-                        self.status_msg = format!("Routed to '{}'! Spoken Reply: '{}'", res.receiver, res.reply_spoken_text);
+                        let cmd = self.manual_voice_command.clone();
+                        self.dispatch_utterance(&cmd);
+                    }
+                });
+
+                ui.add_space(4.0);
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(egui::RichText::new("Quick:").color(gold));
+                    for q in QUICK_COMMANDS {
+                        if ui.small_button(q).clicked() {
+                            self.manual_voice_command = q.to_string();
+                            self.dispatch_utterance(q);
+                        }
                     }
                 });
 
@@ -538,7 +645,32 @@ impl SpeechCraftApp {
                     ui.add_space(6.0);
                     ui.label(egui::RichText::new(format!("Last Spoken Reply: \"{reply}\"")).color(cyan).strong());
                 }
+
+                if !self.dispatch_history.is_empty() {
+                    ui.add_space(6.0);
+                    ui.separator();
+                    ui.label(egui::RichText::new("Dispatch History").strong().color(gold));
+                    egui::Grid::new("dispatch_history_grid").striped(true).num_columns(3).show(ui, |ui| {
+                        for (receiver, transcript, reply) in self.dispatch_history.iter().rev().take(8) {
+                            ui.label(egui::RichText::new(format!("● {receiver}")).color(cyan).monospace());
+                            ui.label(transcript);
+                            ui.label(egui::RichText::new(reply).italics());
+                            ui.end_row();
+                        }
+                    });
+                }
             });
+    }
+
+    fn dispatch_utterance(&mut self, utterance: &str) {
+        let current_epoch = 1793775000;
+        let intent = self.engine.wake_coordinator.extract_intent(utterance, current_epoch);
+        let res = self.engine.voice_bus.route_intent(intent);
+        self.status_msg = format!("Routed to '{}'! Spoken Reply: '{}'", res.receiver, res.reply_spoken_text);
+        self.dispatch_history.push((res.receiver.to_string(), utterance.to_string(), res.reply_spoken_text.to_string()));
+        if self.dispatch_history.len() > 50 {
+            self.dispatch_history.remove(0);
+        }
     }
 
     fn render_prosody_sculptor(&mut self, ui: &mut egui::Ui) {
@@ -546,6 +678,20 @@ impl SpeechCraftApp {
         ui.heading(format!("🎛️ {}", i18n::t(I18nKey::ProsodySculptor, loc)));
         ui.label("Sculpt vocal inflection, pitch contours, warmth, breathiness, and emotional gravity.");
         ui.add_space(12.0);
+        ui.horizontal_wrapped(|ui| {
+            ui.label(egui::RichText::new("Presets:").color(Color32::from_rgb(245, 158, 11)));
+            for (name, p, r, w, b, g) in PROSODY_PRESETS {
+                if ui.button(name).clicked() {
+                    self.pitch_val = p;
+                    self.rate_val = r;
+                    self.warmth_val = w;
+                    self.breathiness_val = b;
+                    self.gravity_val = g;
+                    self.status_msg = format!("Preset loaded: {name}");
+                }
+            }
+        });
+        ui.add_space(8.0);
 
         egui::Grid::new("prosody_grid").num_columns(2).spacing([20.0, 10.0]).show(ui, |ui| {
             ui.label("Pitch Inflection (Semitones):");
@@ -608,7 +754,37 @@ impl SpeechCraftApp {
         ui.label("Paragraph-by-paragraph multitrack audiobook and voiceover mastering timeline.");
         ui.add_space(12.0);
 
-        for item in &self.engine.timeline {
+        ui.horizontal(|ui| {
+            ui.text_edit_singleline(&mut self.new_paragraph_text);
+            if ui.button("➕ Add Paragraph").clicked() && !self.new_paragraph_text.trim().is_empty() {
+                let idx = self.engine.timeline.len();
+                let text = self.new_paragraph_text.trim().to_string();
+                let est_ms = (text.split_whitespace().count() as u64 * 400).max(400);
+                self.engine.timeline.push(speechcraft_core::SpokenTimelineItem {
+                    id: format!("para-{idx}"),
+                    paragraph_idx: idx,
+                    raw_text: text,
+                    phonetic_override: None,
+                    speaker_voice_id: "VP-MISTRESS".to_string(),
+                    prosody: speechcraft_core::VocalProsody {
+                        pitch_semitones: self.pitch_val,
+                        rate_multiplier: self.rate_val,
+                        warmth: self.warmth_val,
+                        breathiness: self.breathiness_val,
+                        gravity: self.gravity_val,
+                    },
+                    target_lufs: -16.0,
+                    audio_duration_ms: est_ms,
+                    is_rendered: false,
+                });
+                self.new_paragraph_text.clear();
+                self.status_msg = format!("Paragraph #{} added to timeline", idx + 1);
+            }
+        });
+        ui.add_space(8.0);
+
+        let mut play_idx: Option<usize> = None;
+        for (i, item) in self.engine.timeline.iter().enumerate() {
             egui::Frame::group(ui.style())
                 .fill(Color32::from_rgb(15, 23, 42))
                 .stroke(egui::Stroke::new(1.0, Color32::from_rgb(37, 52, 77)))
@@ -620,11 +796,37 @@ impl SpeechCraftApp {
                         ui.label(format!("Duration: {:.1}s", item.audio_duration_ms as f32 / 1000.0));
                         ui.separator();
                         ui.label(format!("Loudness: {:.1} LUFS", item.target_lufs));
+                        if ui.small_button("▶ Play Clip").clicked() {
+                            play_idx = Some(i);
+                        }
                     });
                     ui.add_space(4.0);
                     ui.label(egui::RichText::new(&item.raw_text).italics().color(Color32::from_rgb(241, 245, 249)));
                 });
             ui.add_space(6.0);
+        }
+
+        if let Some(i) = play_idx {
+            if let Some(item) = self.engine.timeline.get(i) {
+                let clip = self.engine.synth.synthesize(
+                    &item.raw_text,
+                    &item.speaker_voice_id,
+                    item.prosody.pitch_semitones,
+                    item.prosody.rate_multiplier,
+                    item.prosody.warmth,
+                    item.prosody.breathiness,
+                    item.prosody.gravity,
+                    item.target_lufs,
+                );
+                let played = self.engine.synth.play_samples(&clip.pcm_samples).is_ok();
+                self.status_msg = format!(
+                    "Clip #{}: {:.2}s, {:.1} LUFS ({})",
+                    i + 1,
+                    clip.duration_ms as f32 / 1000.0,
+                    clip.integrated_lufs,
+                    if played { "Active Output" } else { "Simulated/Buffered" }
+                );
+            }
         }
 
         if ui.button(i18n::t(I18nKey::ExportBroadcastMaster, loc)).clicked() {
@@ -643,7 +845,11 @@ impl SpeechCraftApp {
                 total_samples.extend_from_slice(&clip.pcm_samples);
             }
             let wav = speechcraft_dsp::AcousticSynthesizer::export_wav_bytes(&total_samples, speechcraft_dsp::SAMPLE_RATE_16K);
-            self.status_msg = format!("Broadcast master WAV generated ({} bytes, -16.0 LUFS EBU R128 standard)", wav.len());
+            let path = "speechcraft_master_output.wav";
+            self.status_msg = match std::fs::write(path, &wav) {
+                Ok(()) => format!("Broadcast master saved to {path} ({} bytes, -16.0 LUFS EBU R128)", wav.len()),
+                Err(e) => format!("Could not write {path}: {e}"),
+            };
         }
     }
 
