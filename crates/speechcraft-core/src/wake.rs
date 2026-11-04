@@ -10,7 +10,7 @@
 #![deny(clippy::todo)]
 
 use crate::models::{SpeechIntent, WakeWordConfig};
-use speechcraft_dsp::{AudioRingBuffer, VadEngine};
+use speechcraft_dsp::{AudioRingBuffer, KeywordMatcher, VadEngine, KEYWORD_WINDOW_SAMPLES};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WakeState {
@@ -26,7 +26,10 @@ pub struct WakeWordCoordinator {
     pub state: WakeState,
     pub ring_buffer: AudioRingBuffer,
     pub vad: VadEngine,
+    pub keyword_matcher: KeywordMatcher,
     pub last_detected_keyword: Option<String>,
+    pub last_keyword_confidence: f32,
+    pub last_vad_rms: f32,
     pub wake_event_count: usize,
 }
 
@@ -50,7 +53,10 @@ impl WakeWordCoordinator {
             state,
             ring_buffer: AudioRingBuffer::new(16_000 * 10), // 10 seconds capacity
             vad,
+            keyword_matcher: KeywordMatcher::new(),
             last_detected_keyword: None,
+            last_keyword_confidence: 0.0,
+            last_vad_rms: 0.0,
             wake_event_count: 0,
         }
     }
@@ -59,19 +65,29 @@ impl WakeWordCoordinator {
     pub fn ingest_samples(&mut self, samples: &[f32], current_epoch_ms: u64) -> Option<String> {
         self.ring_buffer.push_samples(samples);
         let metrics = self.vad.analyze_frame(samples);
+        self.last_vad_rms = metrics.energy_rms;
 
         match self.state {
             WakeState::ListeningForWake => {
                 if metrics.is_speech {
-                    // Check for wake trigger
-                    // Simulates acoustic feature activation for the configured keyword
+                    let recent = self.ring_buffer.read_recent(KEYWORD_WINDOW_SAMPLES);
                     let keyword_name = self.config.keyword.as_str().to_string();
-                    self.last_detected_keyword = Some(keyword_name.clone());
-                    self.wake_event_count = self.wake_event_count.saturating_add(1);
-                    self.state = WakeState::AwakeCapturingCommand {
-                        started_epoch_ms: current_epoch_ms,
-                    };
-                    return Some(format!("WAKE:{}", self.config.wake_greeting));
+                    let match_res = self.keyword_matcher.evaluate_keyword(
+                        &recent,
+                        &keyword_name,
+                        self.config.sensitivity,
+                    );
+                    self.last_keyword_confidence = match_res.confidence;
+
+                    // Trigger wake if acoustic template matches
+                    if match_res.is_detected {
+                        self.last_detected_keyword = Some(keyword_name);
+                        self.wake_event_count = self.wake_event_count.saturating_add(1);
+                        self.state = WakeState::AwakeCapturingCommand {
+                            started_epoch_ms: current_epoch_ms,
+                        };
+                        return Some(format!("WAKE:{}", self.config.wake_greeting));
+                    }
                 }
             }
             WakeState::AwakeCapturingCommand { started_epoch_ms } => {

@@ -36,6 +36,7 @@ impl WakeKeyword {
 pub struct WakeWordConfig {
     pub keyword: WakeKeyword,
     pub vad_threshold: f32,
+    pub sensitivity: f32,
     pub wake_greeting: String,
     pub sleep_keyword: String,
     pub is_listening: bool,
@@ -47,6 +48,7 @@ impl Default for WakeWordConfig {
         Self {
             keyword: WakeKeyword::WakeyWakey,
             vad_threshold: 0.5,
+            sensitivity: 0.5,
             wake_greeting: "Hello, mistress.".to_string(),
             sleep_keyword: "sleepsleep".to_string(),
             is_listening: true,

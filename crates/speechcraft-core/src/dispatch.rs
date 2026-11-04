@@ -24,6 +24,7 @@ pub enum Command {
     ConfigureWakeWord {
         keyword: Option<String>,
         vad_threshold: Option<f32>,
+        sensitivity: Option<f32>,
         wake_greeting: Option<String>,
         sleep_keyword: Option<String>,
         listen_command_seconds: Option<u32>,
@@ -36,6 +37,11 @@ pub enum Command {
     CheckTimers {
         current_epoch_sec: u64,
     },
+    ListAudioDevices,
+    EvaluateAudioChunk {
+        samples: Vec<f32>,
+    },
+    GetAcousticStatus,
     SynthesizeVoice {
         text: String,
         voice_id: Option<String>,
@@ -52,6 +58,7 @@ pub enum Command {
 pub struct SpeechCraftEngine {
     pub wake_coordinator: WakeWordCoordinator,
     pub voice_bus: VoiceBusManager,
+    pub capture_manager: speechcraft_dsp::AudioCaptureManager,
     pub timeline: Vec<SpokenTimelineItem>,
     pub voiceprints: Vec<VoiceprintProfile>,
 }
@@ -67,6 +74,7 @@ impl SpeechCraftEngine {
     pub fn new() -> Self {
         let wake = WakeWordCoordinator::default();
         let bus = VoiceBusManager::default();
+        let capture = speechcraft_dsp::AudioCaptureManager::new();
 
         let default_timeline = vec![
             SpokenTimelineItem {
@@ -104,6 +112,7 @@ impl SpeechCraftEngine {
         Self {
             wake_coordinator: wake,
             voice_bus: bus,
+            capture_manager: capture,
             timeline: default_timeline,
             voiceprints: default_voiceprints,
         }
@@ -119,6 +128,11 @@ impl SpeechCraftEngine {
                     "status": "ready",
                     "wake_listening": self.wake_coordinator.config.is_listening,
                     "wake_keyword": self.wake_coordinator.config.keyword.as_str(),
+                    "sensitivity": self.wake_coordinator.config.sensitivity,
+                    "is_capturing": self.capture_manager.is_capturing(),
+                    "active_device": self.capture_manager.active_device_name(),
+                    "last_keyword_confidence": self.wake_coordinator.last_keyword_confidence,
+                    "last_vad_rms": self.wake_coordinator.last_vad_rms,
                     "active_timers": self.voice_bus.active_timers.len(),
                     "timeline_paragraphs": self.timeline.len(),
                     "voiceprints_count": self.voiceprints.len(),
@@ -128,6 +142,7 @@ impl SpeechCraftEngine {
             Command::ConfigureWakeWord {
                 keyword,
                 vad_threshold,
+                sensitivity,
                 wake_greeting,
                 sleep_keyword,
                 listen_command_seconds,
@@ -144,6 +159,9 @@ impl SpeechCraftEngine {
                 if let Some(thresh) = vad_threshold {
                     self.wake_coordinator.config.vad_threshold = thresh.clamp(0.01, 0.99);
                 }
+                if let Some(sens) = sensitivity {
+                    self.wake_coordinator.config.sensitivity = sens.clamp(0.0, 1.0);
+                }
                 if let Some(greet) = wake_greeting {
                     self.wake_coordinator.config.wake_greeting = greet;
                 }
@@ -157,6 +175,7 @@ impl SpeechCraftEngine {
                 json!({
                     "success": true,
                     "wake_keyword": self.wake_coordinator.config.keyword.as_str(),
+                    "sensitivity": self.wake_coordinator.config.sensitivity,
                     "greeting": self.wake_coordinator.config.wake_greeting,
                     "sleep_keyword": self.wake_coordinator.config.sleep_keyword,
                     "vad_threshold": self.wake_coordinator.config.vad_threshold
@@ -193,6 +212,39 @@ impl SpeechCraftEngine {
                 json!({
                     "success": true,
                     "alerts": alerts
+                })
+            }
+            Command::ListAudioDevices => {
+                let devices = self.capture_manager.list_input_devices();
+                json!({
+                    "success": true,
+                    "devices": devices,
+                    "active_device": self.capture_manager.active_device_name(),
+                    "is_capturing": self.capture_manager.is_capturing()
+                })
+            }
+            Command::EvaluateAudioChunk { samples } => {
+                let current_epoch_ms = 1793775000_000;
+                let trigger_event = self.wake_coordinator.ingest_samples(&samples, current_epoch_ms);
+                json!({
+                    "success": true,
+                    "trigger_event": trigger_event,
+                    "wake_state": format!("{:?}", self.wake_coordinator.state),
+                    "confidence": self.wake_coordinator.last_keyword_confidence,
+                    "energy_rms": self.wake_coordinator.last_vad_rms
+                })
+            }
+            Command::GetAcousticStatus => {
+                json!({
+                    "success": true,
+                    "wake_state": format!("{:?}", self.wake_coordinator.state),
+                    "keyword": self.wake_coordinator.config.keyword.as_str(),
+                    "sensitivity": self.wake_coordinator.config.sensitivity,
+                    "vad_threshold": self.wake_coordinator.config.vad_threshold,
+                    "last_confidence": self.wake_coordinator.last_keyword_confidence,
+                    "last_energy_rms": self.wake_coordinator.last_vad_rms,
+                    "is_capturing": self.capture_manager.is_capturing(),
+                    "active_device": self.capture_manager.active_device_name()
                 })
             }
             Command::SynthesizeVoice {

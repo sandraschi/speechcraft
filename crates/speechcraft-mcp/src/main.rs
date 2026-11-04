@@ -20,6 +20,9 @@ struct Args {
 
     #[arg(long)]
     smoke: bool,
+
+    #[arg(long)]
+    list_devices: bool,
 }
 
 #[tokio::main]
@@ -28,14 +31,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let store = DatabaseStore::open_in_memory()?;
     let mut engine = SpeechCraftEngine::new();
 
+    if args.list_devices {
+        let dev_status = engine.dispatch(Command::ListAudioDevices, &store);
+        println!("{}", serde_json::to_string_pretty(&dev_status)?);
+        return Ok(());
+    }
+
     if args.smoke {
         let status = engine.dispatch(Command::Status, &store);
         let success = status.get("success").and_then(|v| v.as_bool()).unwrap_or(false);
-        if success {
-            println!("speechcraft-mcp smoke: OK (control port {})", args.control);
-            return Ok(());
+        if !success {
+            return Err("speechcraft-mcp smoke verification failed: status".into());
         }
-        return Err("speechcraft-mcp smoke verification failed".into());
+
+        let dev_status = engine.dispatch(Command::ListAudioDevices, &store);
+        let dev_ok = dev_status.get("success").and_then(|v| v.as_bool()).unwrap_or(false);
+        if !dev_ok {
+            return Err("speechcraft-mcp smoke verification failed: list audio devices".into());
+        }
+
+        let acoustic = engine.dispatch(Command::GetAcousticStatus, &store);
+        let acoustic_ok = acoustic.get("success").and_then(|v| v.as_bool()).unwrap_or(false);
+        if !acoustic_ok {
+            return Err("speechcraft-mcp smoke verification failed: acoustic status".into());
+        }
+
+        println!("speechcraft-mcp smoke: OK (control port {}, audio I/O & acoustic listener verified)", args.control);
+        return Ok(());
     }
 
     println!(

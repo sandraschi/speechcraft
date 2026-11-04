@@ -22,6 +22,7 @@ fn test_speechcraft_wake_word_and_routing() {
         Command::ConfigureWakeWord {
             keyword: Some("wakeywakey".to_string()),
             vad_threshold: Some(0.6),
+            sensitivity: Some(0.5),
             wake_greeting: Some("At your service, mistress.".to_string()),
             sleep_keyword: Some("sleepsleep".to_string()),
             listen_command_seconds: Some(5),
@@ -29,7 +30,16 @@ fn test_speechcraft_wake_word_and_routing() {
         &store,
     );
     assert_eq!(cfg_res["wake_keyword"], "wakeywakey");
+    assert_eq!(cfg_res["sensitivity"], 0.5);
     assert_eq!(cfg_res["greeting"], "At your service, mistress.");
+
+    // 1b. Test Audio Devices and Acoustic Status
+    let dev_res = engine.dispatch(Command::ListAudioDevices, &store);
+    assert_eq!(dev_res["success"], true);
+
+    let status_res = engine.dispatch(Command::GetAcousticStatus, &store);
+    assert_eq!(status_res["success"], true);
+    assert_eq!(status_res["keyword"], "wakeywakey");
 
     // 2. Trigger Wake
     let wake_res = engine.dispatch(Command::TriggerWake, &store);

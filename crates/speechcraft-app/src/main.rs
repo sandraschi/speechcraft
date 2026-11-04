@@ -44,6 +44,14 @@ pub struct SpeechCraftApp {
     pub show_about_dialog: bool,
     pub status_msg: String,
 
+    // Hardware Audio Input & Continuous Listener
+    pub input_devices: Vec<speechcraft_dsp::InputDeviceInfo>,
+    pub selected_device_idx: usize,
+    pub is_capturing_mic: bool,
+    pub live_rms: f32,
+    pub live_confidence: f32,
+    pub sensitivity_slider: f32,
+
     // Audio Visualization Mock/Buffer State
     pub spec_analyzer: SpectrogramAnalyzer,
     pub simulated_spectrum: Vec<f32>,
@@ -65,6 +73,7 @@ impl SpeechCraftApp {
         let store = DatabaseStore::open_in_memory()?;
         let engine = SpeechCraftEngine::new();
         let spec_analyzer = SpectrogramAnalyzer::new(48);
+        let input_devices = engine.capture_manager.list_input_devices();
 
         // Simulated spectrum data for 60fps acoustic visualizer
         let mut sim = Vec::with_capacity(48);
@@ -83,6 +92,12 @@ impl SpeechCraftApp {
             auth_username: "mistress".to_string(),
             show_about_dialog: false,
             status_msg: format!("SpeechCraft v{APP_VERSION} Sovereign Studio Ready (Port {CONTROL_PORT})"),
+            input_devices,
+            selected_device_idx: 0,
+            is_capturing_mic: false,
+            live_rms: 0.0,
+            live_confidence: 0.0,
+            sensitivity_slider: 0.5,
             spec_analyzer,
             simulated_spectrum: sim,
             pitch_val: 0.0,
@@ -289,12 +304,89 @@ impl SpeechCraftApp {
 
         ui.add_space(12.0);
 
+        // Hardware Audio Ingress Card
+        egui::Frame::group(ui.style()).show(ui, |ui| {
+            ui.heading("Hardware Audio Ingress & Microphone Stream");
+            ui.horizontal(|ui| {
+                ui.label("Input Device:");
+                let current_dev_name = self
+                    .input_devices
+                    .get(self.selected_device_idx)
+                    .map(|d| d.name.as_str())
+                    .unwrap_or("Default System Microphone");
+
+                egui::ComboBox::from_id_salt("mic_device_selector")
+                    .selected_text(current_dev_name)
+                    .show_ui(ui, |ui| {
+                        for (idx, dev) in self.input_devices.iter().enumerate() {
+                            let label = if dev.is_default {
+                                format!("{} (Default)", dev.name)
+                            } else {
+                                dev.name.clone()
+                            };
+                            ui.selectable_value(&mut self.selected_device_idx, idx, label);
+                        }
+                    });
+
+                if ui.button("🔄 Refresh Devices").clicked() {
+                    self.input_devices = self.engine.capture_manager.list_input_devices();
+                    self.status_msg = format!("Found {} audio input device(s)", self.input_devices.len());
+                }
+            });
+
+            ui.add_space(6.0);
+            ui.horizontal(|ui| {
+                let is_capturing = self.is_capturing_mic;
+                let btn_text = if is_capturing { "⏹️ Stop Microphone" } else { "🎙️ Start Continuous Mic" };
+                if ui.button(btn_text).clicked() {
+                    if is_capturing {
+                        self.engine.capture_manager.stop_capture();
+                        self.is_capturing_mic = false;
+                        self.status_msg = "Microphone streaming stopped".to_string();
+                    } else {
+                        let dev_name = self.input_devices.get(self.selected_device_idx).map(|d| d.name.as_str());
+                        let ring = std::sync::Arc::new(std::sync::Mutex::new(self.engine.wake_coordinator.ring_buffer.clone()));
+                        match self.engine.capture_manager.start_capture(dev_name, ring) {
+                            Ok(name) => {
+                                self.is_capturing_mic = true;
+                                self.status_msg = format!("Microphone capture active: '{name}'");
+                            }
+                            Err(e) => {
+                                self.status_msg = format!("Audio capture unavailable: {e}");
+                            }
+                        }
+                    }
+                }
+
+                ui.separator();
+                let vad_status = if self.live_rms > 0.02 { "🟢 SPEECH" } else { "⚪ QUIET" };
+                ui.label(format!("VAD: {vad_status}"));
+                ui.separator();
+                ui.label(format!("RMS: {:.3}", self.live_rms));
+                ui.separator();
+                ui.label(format!("Keyword Match: {:.1}%", self.live_confidence * 100.0));
+            });
+
+            ui.add_space(6.0);
+            ui.horizontal(|ui| {
+                ui.label("Keyword Sensitivity:");
+                if ui.add(egui::Slider::new(&mut self.sensitivity_slider, 0.0..=1.0)).changed() {
+                    self.engine.wake_coordinator.config.sensitivity = self.sensitivity_slider;
+                }
+            });
+        });
+
+        ui.add_space(12.0);
+
         // Wake Word Controls Card
         egui::Frame::group(ui.style()).show(ui, |ui| {
             ui.heading("Acoustic Ingress & Wake Word Configuration");
             ui.horizontal(|ui| {
                 ui.label("Wake Keyword:");
                 ui.strong(self.engine.wake_coordinator.config.keyword.as_str());
+                ui.separator();
+                ui.label("Sensitivity:");
+                ui.strong(format!("{:.2}", self.engine.wake_coordinator.config.sensitivity));
                 ui.separator();
                 ui.label("Spoken Greeting:");
                 ui.strong(&self.engine.wake_coordinator.config.wake_greeting);

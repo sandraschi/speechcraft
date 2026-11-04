@@ -9,16 +9,21 @@ if (-not (Test-Path $cargo)) {
     $cargo = "cargo"
 }
 
-if ($Smoke) {
-    Write-Host "Running SpeechCraft smoke check on Port $Port..."
-    & $cargo test --workspace
-    exit $LASTEXITCODE
-}
+Push-Location $PSScriptRoot
+try {
+    if ($Smoke) {
+        Write-Host "Running SpeechCraft smoke check on Port $Port..."
+        & $cargo test --workspace
+        exit $LASTEXITCODE
+    }
 
-if ($Headless) {
-    Write-Host "Starting SpeechCraft FastMCP Daemon on port $Port..."
-    & $cargo run -p speechcraft-mcp -- --control $Port
-} else {
-    Write-Host "Starting SpeechCraft Sovereign Studio GUI (Port $Port)..."
-    & $cargo run -p speechcraft-app -- --control $Port
+    if ($Headless) {
+        Write-Host "Starting SpeechCraft FastMCP Daemon on port $Port..."
+        & $cargo run -p speechcraft-mcp -- --control $Port
+    } else {
+        Write-Host "Starting SpeechCraft Sovereign Studio GUI (Port $Port)..."
+        & $cargo run -p speechcraft-app -- --control $Port
+    }
+} finally {
+    Pop-Location
 }
