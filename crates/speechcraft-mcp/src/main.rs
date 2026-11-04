@@ -23,6 +23,9 @@ struct Args {
 
     #[arg(long)]
     list_devices: bool,
+
+    #[arg(long)]
+    synthesize: Option<String>,
 }
 
 #[tokio::main]
@@ -30,6 +33,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     let store = DatabaseStore::open_in_memory()?;
     let mut engine = SpeechCraftEngine::new();
+
+    if let Some(text) = args.synthesize {
+        let synth_res = engine.dispatch(
+            Command::SynthesizeVoice {
+                text,
+                voice_id: Some("VP-MISTRESS".to_string()),
+                prosody: None,
+                play_audio: Some(true),
+            },
+            &store,
+        );
+        println!("{}", serde_json::to_string_pretty(&synth_res)?);
+        return Ok(());
+    }
 
     if args.list_devices {
         let dev_status = engine.dispatch(Command::ListAudioDevices, &store);
@@ -56,7 +73,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             return Err("speechcraft-mcp smoke verification failed: acoustic status".into());
         }
 
-        println!("speechcraft-mcp smoke: OK (control port {}, audio I/O & acoustic listener verified)", args.control);
+        let synth = engine.dispatch(
+            Command::SynthesizeVoice {
+                text: "Smoke test synthesis verification.".to_string(),
+                voice_id: Some("VP-MISTRESS".to_string()),
+                prosody: None,
+                play_audio: Some(false),
+            },
+            &store,
+        );
+        let synth_ok = synth.get("success").and_then(|v| v.as_bool()).unwrap_or(false);
+        if !synth_ok {
+            return Err("speechcraft-mcp smoke verification failed: voice synthesis".into());
+        }
+
+        let verify = engine.dispatch(
+            Command::VerifyVoiceprint {
+                profile_id: "VP-MISTRESS".to_string(),
+                samples: vec![0.1f32; 16_000],
+            },
+            &store,
+        );
+        let verify_ok = verify.get("success").and_then(|v| v.as_bool()).unwrap_or(false);
+        if !verify_ok {
+            return Err("speechcraft-mcp smoke verification failed: voiceprint enclave".into());
+        }
+
+        println!("speechcraft-mcp smoke: OK (control port {}, neural synthesis & voiceprint enclave verified)", args.control);
         return Ok(());
     }
 

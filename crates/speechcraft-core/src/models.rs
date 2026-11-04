@@ -149,4 +149,18 @@ pub struct VoiceprintProfile {
     pub accent: String,
     pub sample_count: usize,
     pub similarity_confidence: f32,
+    pub embedding: Vec<f32>,
+}
+
+/// Synthesized audio clip metadata.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SynthesizedClip {
+    pub clip_id: String,
+    pub text: String,
+    pub voice_id: String,
+    pub prosody: VocalProsody,
+    pub sample_rate: u32,
+    pub duration_ms: u64,
+    pub lufs: f32,
+    pub pcm_sample_count: usize,
 }

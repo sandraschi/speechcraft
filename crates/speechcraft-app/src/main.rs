@@ -465,7 +465,30 @@ impl SpeechCraftApp {
         ui.add_space(6.0);
 
         if ui.button(format!("▶ {}", i18n::t(I18nKey::SpeakText, loc))).clicked() {
-            self.status_msg = format!("Synthesizing audio: Pitch {:.1}st, Warmth {:.2}", self.pitch_val, self.warmth_val);
+            let prosody = speechcraft_core::VocalProsody {
+                pitch_semitones: self.pitch_val,
+                rate_multiplier: self.rate_val,
+                warmth: self.warmth_val,
+                breathiness: self.breathiness_val,
+                gravity: self.gravity_val,
+            };
+            let clip = self.engine.synth.synthesize(
+                &self.preview_text,
+                "VP-MISTRESS",
+                prosody.pitch_semitones,
+                prosody.rate_multiplier,
+                prosody.warmth,
+                prosody.breathiness,
+                prosody.gravity,
+                -16.0,
+            );
+            let played = self.engine.synth.play_samples(&clip.pcm_samples).is_ok();
+            self.status_msg = format!(
+                "Synthesized: {:.2}s, LUFS: {:.1} (Audio Stream: {})",
+                clip.duration_ms as f32 / 1000.0,
+                clip.integrated_lufs,
+                if played { "Active Output" } else { "Simulated/Buffered" }
+            );
         }
     }
 
@@ -492,7 +515,22 @@ impl SpeechCraftApp {
         }
 
         if ui.button(i18n::t(I18nKey::ExportBroadcastMaster, loc)).clicked() {
-            self.status_msg = "Broadcast master WAV (48kHz, 24-bit, -16.0 LUFS) exported".to_string();
+            let mut total_samples = Vec::new();
+            for item in &self.engine.timeline {
+                let clip = self.engine.synth.synthesize(
+                    &item.raw_text,
+                    &item.speaker_voice_id,
+                    item.prosody.pitch_semitones,
+                    item.prosody.rate_multiplier,
+                    item.prosody.warmth,
+                    item.prosody.breathiness,
+                    item.prosody.gravity,
+                    item.target_lufs,
+                );
+                total_samples.extend_from_slice(&clip.pcm_samples);
+            }
+            let wav = speechcraft_dsp::AcousticSynthesizer::export_wav_bytes(&total_samples, speechcraft_dsp::SAMPLE_RATE_16K);
+            self.status_msg = format!("Broadcast master WAV generated ({} bytes, -16.0 LUFS EBU R128 standard)", wav.len());
         }
     }
 
@@ -511,7 +549,22 @@ impl SpeechCraftApp {
                     ui.separator();
                     ui.label(format!("Accent: {}", vp.accent));
                     ui.separator();
+                    ui.label(format!("Embedding: {}-dim", vp.embedding.len()));
+                    ui.separator();
                     ui.label(format!("Confidence: {:.0}%", vp.similarity_confidence * 100.0));
+                });
+                ui.add_space(4.0);
+                ui.horizontal(|ui| {
+                    if ui.button(format!("🧪 Test Biometric Match ({})", vp.profile_id)).clicked() {
+                        let synthetic = vec![0.15f32; 16_000];
+                        let res = self.engine.voiceprint_enclave.verify(&synthetic, &vp.embedding, &vp.profile_id);
+                        self.status_msg = format!(
+                            "Biometric check for {}: Match {:.1}%, Authenticated: {}",
+                            vp.profile_id,
+                            res.similarity * 100.0,
+                            if res.is_authenticated { "YES" } else { "NO" }
+                        );
+                    }
                 });
             });
             ui.add_space(6.0);

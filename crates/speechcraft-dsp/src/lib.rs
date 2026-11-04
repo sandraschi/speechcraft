@@ -10,9 +10,16 @@
 
 pub mod capture;
 pub mod keyword;
+pub mod synth;
+pub mod voiceprint;
 
 pub use capture::{resample_and_downmix, AudioCaptureError, AudioCaptureManager, InputDeviceInfo};
 pub use keyword::{KeywordMatchResult, KeywordMatcher, KEYWORD_WINDOW_SAMPLES};
+pub use synth::{AcousticSynthesizer, GeneratedAudioClip, SynthError};
+pub use voiceprint::{
+    VoiceprintEnclave, VoiceprintMatchResult, BIOMETRIC_MATCH_THRESHOLD,
+    VOICEPRINT_EMBEDDING_DIM,
+};
 use serde::{Deserialize, Serialize};
 
 pub const SAMPLE_RATE_16K: u32 = 16_000;

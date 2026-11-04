@@ -79,4 +79,41 @@ fn test_speechcraft_spoken_timeline_and_voiceprints() {
 
     let vp_res = engine.dispatch(Command::ListVoiceprints, &store);
     assert!(vp_res["voiceprints"].as_array().unwrap().len() >= 2);
+
+    // 2. Synthesize voice with prosody
+    let synth_res = engine.dispatch(
+        Command::SynthesizeVoice {
+            text: "Sovereign voice synthesis online.".to_string(),
+            voice_id: Some("VP-MISTRESS".to_string()),
+            prosody: None,
+            play_audio: Some(false),
+        },
+        &store,
+    );
+    assert_eq!(synth_res["success"], true);
+    assert!(synth_res["duration_ms"].as_u64().unwrap() > 400);
+
+    // 3. Export WAV
+    let wav_res = engine.dispatch(
+        Command::ExportWav {
+            text: "Testing broadcast master.".to_string(),
+            voice_id: Some("VP-FRITZ".to_string()),
+            prosody: None,
+        },
+        &store,
+    );
+    assert_eq!(wav_res["success"], true);
+    assert!(wav_res["byte_count"].as_u64().unwrap() > 44);
+
+    // 4. Voiceprint Biometric Verification
+    let samples = vec![0.1f32; 16_000];
+    let verify_res = engine.dispatch(
+        Command::VerifyVoiceprint {
+            profile_id: "VP-MISTRESS".to_string(),
+            samples,
+        },
+        &store,
+    );
+    assert_eq!(verify_res["success"], true);
+    assert!(verify_res["similarity"].as_f64().unwrap() > 0.0);
 }

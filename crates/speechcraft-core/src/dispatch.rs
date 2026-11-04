@@ -46,6 +46,23 @@ pub enum Command {
         text: String,
         voice_id: Option<String>,
         prosody: Option<VocalProsody>,
+        play_audio: Option<bool>,
+    },
+    ExportWav {
+        text: String,
+        voice_id: Option<String>,
+        prosody: Option<VocalProsody>,
+    },
+    VerifyVoiceprint {
+        profile_id: String,
+        samples: Vec<f32>,
+    },
+    EnrollVoiceprint {
+        profile_id: String,
+        name: String,
+        gender: String,
+        accent: String,
+        samples: Vec<f32>,
     },
     ListTimelineItems,
     AddTimelineItem {
@@ -59,6 +76,8 @@ pub struct SpeechCraftEngine {
     pub wake_coordinator: WakeWordCoordinator,
     pub voice_bus: VoiceBusManager,
     pub capture_manager: speechcraft_dsp::AudioCaptureManager,
+    pub synth: speechcraft_dsp::AcousticSynthesizer,
+    pub voiceprint_enclave: speechcraft_dsp::VoiceprintEnclave,
     pub timeline: Vec<SpokenTimelineItem>,
     pub voiceprints: Vec<VoiceprintProfile>,
 }
@@ -75,6 +94,8 @@ impl SpeechCraftEngine {
         let wake = WakeWordCoordinator::default();
         let bus = VoiceBusManager::default();
         let capture = speechcraft_dsp::AudioCaptureManager::new();
+        let synth = speechcraft_dsp::AcousticSynthesizer::new();
+        let enclave = speechcraft_dsp::VoiceprintEnclave::default();
 
         let default_timeline = vec![
             SpokenTimelineItem {
@@ -98,6 +119,7 @@ impl SpeechCraftEngine {
                 accent: "RP / Oxford British".to_string(),
                 sample_count: 42,
                 similarity_confidence: 0.99,
+                embedding: speechcraft_dsp::VoiceprintEnclave::generate_archetype_embedding(0.25, 0.8),
             },
             VoiceprintProfile {
                 profile_id: "VP-FRITZ".to_string(),
@@ -106,6 +128,7 @@ impl SpeechCraftEngine {
                 accent: "Mid-Atlantic Neutral".to_string(),
                 sample_count: 128,
                 similarity_confidence: 0.98,
+                embedding: speechcraft_dsp::VoiceprintEnclave::generate_archetype_embedding(0.75, 0.3),
             },
         ];
 
@@ -113,6 +136,8 @@ impl SpeechCraftEngine {
             wake_coordinator: wake,
             voice_bus: bus,
             capture_manager: capture,
+            synth,
+            voiceprint_enclave: enclave,
             timeline: default_timeline,
             voiceprints: default_voiceprints,
         }
@@ -251,16 +276,111 @@ impl SpeechCraftEngine {
                 text,
                 voice_id,
                 prosody,
+                play_audio,
             } => {
                 let v_id = voice_id.unwrap_or_else(|| "fritz_sovereign".to_string());
                 let p = prosody.unwrap_or_default();
+                let clip = self.synth.synthesize(
+                    &text,
+                    &v_id,
+                    p.pitch_semitones,
+                    p.rate_multiplier,
+                    p.warmth,
+                    p.breathiness,
+                    p.gravity,
+                    -16.0,
+                );
+
+                let played = if play_audio.unwrap_or(false) {
+                    self.synth.play_samples(&clip.pcm_samples).is_ok()
+                } else {
+                    false
+                };
+
                 json!({
                     "success": true,
                     "text": text,
                     "voice_id": v_id,
                     "prosody": p,
-                    "duration_ms": 2400,
-                    "lufs": -16.0
+                    "duration_ms": clip.duration_ms,
+                    "lufs": clip.integrated_lufs,
+                    "peak_db": clip.peak_db,
+                    "sample_rate": clip.sample_rate,
+                    "pcm_sample_count": clip.pcm_samples.len(),
+                    "played": played
+                })
+            }
+            Command::ExportWav {
+                text,
+                voice_id,
+                prosody,
+            } => {
+                let v_id = voice_id.unwrap_or_else(|| "fritz_sovereign".to_string());
+                let p = prosody.unwrap_or_default();
+                let clip = self.synth.synthesize(
+                    &text,
+                    &v_id,
+                    p.pitch_semitones,
+                    p.rate_multiplier,
+                    p.warmth,
+                    p.breathiness,
+                    p.gravity,
+                    -16.0,
+                );
+                let wav_bytes = speechcraft_dsp::AcousticSynthesizer::export_wav_bytes(
+                    &clip.pcm_samples,
+                    clip.sample_rate,
+                );
+                json!({
+                    "success": true,
+                    "duration_ms": clip.duration_ms,
+                    "byte_count": wav_bytes.len(),
+                    "lufs": clip.integrated_lufs
+                })
+            }
+            Command::VerifyVoiceprint {
+                profile_id,
+                samples,
+            } => {
+                let profile = self.voiceprints.iter().find(|p| p.profile_id == profile_id);
+                if let Some(prof) = profile {
+                    let match_res = self.voiceprint_enclave.verify(&samples, &prof.embedding, &profile_id);
+                    json!({
+                        "success": true,
+                        "profile_id": profile_id,
+                        "similarity": match_res.similarity,
+                        "is_authenticated": match_res.is_authenticated,
+                        "threshold": match_res.threshold
+                    })
+                } else {
+                    json!({
+                        "success": false,
+                        "error": format!("Profile '{profile_id}' not enrolled")
+                    })
+                }
+            }
+            Command::EnrollVoiceprint {
+                profile_id,
+                name,
+                gender,
+                accent,
+                samples,
+            } => {
+                let embedding = self.voiceprint_enclave.extract_embedding(&samples);
+                let prof = VoiceprintProfile {
+                    profile_id: profile_id.clone(),
+                    name,
+                    gender,
+                    accent,
+                    sample_count: samples.len(),
+                    similarity_confidence: 0.99,
+                    embedding,
+                };
+                self.voiceprints.push(prof);
+                json!({
+                    "success": true,
+                    "enrolled_profile_id": profile_id,
+                    "total_voiceprints": self.voiceprints.len()
                 })
             }
             Command::ListTimelineItems => {
