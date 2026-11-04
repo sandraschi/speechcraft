@@ -11,3 +11,4 @@ serde_json.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 chrono.workspace = true
+cpal = "0.15"

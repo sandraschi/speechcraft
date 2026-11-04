@@ -8,6 +8,11 @@
 #![deny(clippy::unimplemented)]
 #![deny(clippy::todo)]
 
+pub mod capture;
+pub mod keyword;
+
+pub use capture::{resample_and_downmix, AudioCaptureError, AudioCaptureManager, InputDeviceInfo};
+pub use keyword::{KeywordMatchResult, KeywordMatcher, KEYWORD_WINDOW_SAMPLES};
 use serde::{Deserialize, Serialize};
 
 pub const SAMPLE_RATE_16K: u32 = 16_000;
