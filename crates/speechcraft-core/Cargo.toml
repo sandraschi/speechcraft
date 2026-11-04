@@ -1,0 +1,16 @@
+[package]
+name = "speechcraft-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+speechcraft-dsp = { path = "../speechcraft-dsp" }
+databasecraft-store.workspace = true
+databasecraft-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+chrono.workspace = true
