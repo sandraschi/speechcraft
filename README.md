@@ -47,6 +47,18 @@ SpeechCraft exposes standard MCP 2024-11-05 JSON-RPC tools over stdio:
 - `speechcraft_list_voiceprints`: List registered voiceprints and 32-dim biometric embeddings.
 - `speechcraft_timeline_manage`: Manage spoken literature multitrack timeline paragraphs.
 
+## Status — does today / next week / non-goals
+
+**Does today:** 4-crate Rust ArtCraft (dsp-first), port 14132; timeline
+editor + visualizer momentum; 20 test fns.
+
+**Next week:** PRD (native-vs-sidecar map, bus contract pin, latency
+budget); DSP fixture tests (WAV → transcript, no mic); transcribe-sim
+recipe.
+
+**Non-goals:** single wake listener fleet-wide (bus doctrine); no mic in
+CI, ever.
+
 ## Lineage — the Storytold craft-app pattern
 
 Storytold ArtCraft ([storytold/artcraft](https://github.com/storytold/artcraft) — "the IDE for artists") was the starting point. The 16 craft apps in the Storytold stable each ship one binary that is both the human CLI and the agent MCP server (stdio), headless-first, with `run.json` + report artifacts. That modus operandi and harness is what this repo implements; the code here is independent, the pattern is shared.
