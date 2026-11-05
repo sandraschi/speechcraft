@@ -1,4 +1,4 @@
-//! SpeechCraft Sovereign FastMCP Server & Control Protocol.
+//! SpeechCraft FastMCP Server & Control Protocol.
 //!
 //! Provides pure JSON-RPC (MCP 2024-11-05) over stdio and CLI control bus on Port 14132.
 //! Stdout is 100% pure JSON-RPC in MCP mode. All diagnostics go to stderr.
@@ -17,7 +17,7 @@ use std::io::{BufRead, Write};
 #[derive(Parser, Debug)]
 #[command(
     name = "speechcraft-mcp",
-    about = "SpeechCraft Sovereign FastMCP Voice Bus & Acoustic Engine",
+    about = "SpeechCraft FastMCP Voice Bus & Acoustic Engine",
     version = APP_VERSION
 )]
 struct Args {
@@ -113,7 +113,7 @@ pub fn tools_list() -> Value {
         },
         {
             "name": "speechcraft_verify_voiceprint",
-            "description": "Biometrically authenticate acoustic samples against enrolled sovereign voiceprint profiles",
+            "description": "Biometrically authenticate acoustic samples against enrolled local voiceprint profiles",
             "inputSchema": {
                 "type": "object",
                 "properties": {

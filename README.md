@@ -1,6 +1,6 @@
 # SpeechCraft
 
-> Sovereign Acoustic Studio, Real-Time Wake Word Coordinator & Neural Voice Command Bus.
+> Local-First Acoustic Studio, Real-Time Wake Word Coordinator & Neural Voice Command Bus.
 
 SpeechCraft delivers low-latency, zero-panic, pure-Rust voice capabilities to the ArtCraft fleet, uniting wake word detection, ambient speech recognition, prosody shaping, and broadcast audio mastering on Port **14132**.
 
@@ -27,7 +27,7 @@ SpeechCraft delivers low-latency, zero-panic, pure-Rust voice capabilities to th
 .\start.ps1 -Headless
 
 # Synthesize speech directly via CLI
-cargo run -p speechcraft-mcp -- --synthesize "Hello fleet sovereign"
+cargo run -p speechcraft-mcp -- --synthesize "Hello fleet"
 
 # Enumerate physical microphone input devices
 cargo run -p speechcraft-mcp -- --list-devices

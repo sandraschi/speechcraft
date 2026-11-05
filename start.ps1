@@ -23,7 +23,7 @@ try {
         Write-Host "Starting SpeechCraft FastMCP Daemon on port $Port..."
         & $cargo run -p speechcraft-mcp -- --control $Port
     } else {
-        Write-Host "Starting SpeechCraft Sovereign Studio GUI (Port $Port)..."
+        Write-Host "Starting SpeechCraft Studio GUI (Port $Port)..."
         & $cargo run -p speechcraft-app -- --control $Port
     }
 } finally {

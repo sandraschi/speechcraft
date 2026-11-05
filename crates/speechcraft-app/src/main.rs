@@ -16,7 +16,7 @@ use speechcraft_core::{Command, SpeechCraftEngine, APP_VERSION, CONTROL_PORT};
 use speechcraft_dsp::SpectrogramAnalyzer;
 
 #[derive(Parser, Debug)]
-#[command(name = "speechcraft", about = "SpeechCraft Sovereign Acoustic Studio", version = APP_VERSION)]
+#[command(name = "speechcraft", about = "SpeechCraft Local-First Acoustic Studio", version = APP_VERSION)]
 struct Args {
     #[arg(long, default_value_t = CONTROL_PORT)]
     control: u16,

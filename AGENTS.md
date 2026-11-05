@@ -1,9 +1,9 @@
 # SpeechCraft — AGENTS.md
 
-**Purpose**: Sovereign acoustic studio, wake word coordinator, and neural voice command bus for the ArtCraft ecosystem.
+**Purpose**: Local-first acoustic studio, wake word coordinator, and neural voice command bus for the ArtCraft ecosystem.
 
 ## Fleet Context
-- Sovereign zero-panic Rust architecture (`crates/speechcraft-core`, `crates/speechcraft-dsp`, `crates/speechcraft-app`, `crates/speechcraft-mcp`).
+- Local-first zero-panic Rust architecture (`crates/speechcraft-core`, `crates/speechcraft-dsp`, `crates/speechcraft-app`, `crates/speechcraft-mcp`).
 - Control port: **14132** (registered in `mcp-central-docs/operations/WEBAPP_PORTS.md`).
 - Fleet voice command bus router ingress: `http://127.0.0.1:10996/api/voice/intent`.
 - Wake words: `wakeywakey`, `hey_jarvis`, `alexa`, `hey_mycroft`.
