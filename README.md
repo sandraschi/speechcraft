@@ -46,3 +46,7 @@ SpeechCraft exposes standard MCP 2024-11-05 JSON-RPC tools over stdio:
 - `speechcraft_verify_voiceprint`: Authenticate 16kHz audio against enrolled biometric voiceprints.
 - `speechcraft_list_voiceprints`: List registered voiceprints and 32-dim biometric embeddings.
 - `speechcraft_timeline_manage`: Manage spoken literature multitrack timeline paragraphs.
+
+## Lineage — the Storytold craft-app pattern
+
+Storytold ArtCraft ([storytold/artcraft](https://github.com/storytold/artcraft) — "the IDE for artists") was the starting point. The 16 craft apps in the Storytold stable each ship one binary that is both the human CLI and the agent MCP server (stdio), headless-first, with `run.json` + report artifacts. That modus operandi and harness is what this repo implements; the code here is independent, the pattern is shared.
