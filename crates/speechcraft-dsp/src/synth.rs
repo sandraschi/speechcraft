@@ -27,6 +27,13 @@ pub enum SynthError {
     PlayStreamError(String),
 }
 
+/// Information describing a detected host audio output device (speakers).
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct OutputDeviceInfo {
+    pub name: String,
+    pub is_default: bool,
+}
+
 /// Generated audio clip containing PCM samples and mastering metrics.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GeneratedAudioClip {
@@ -54,6 +61,25 @@ impl Default for AcousticSynthesizer {
 }
 
 impl AcousticSynthesizer {
+    /// Lists all available host audio output devices (speakers / interfaces).
+    #[must_use]
+    pub fn list_output_devices(&self) -> Vec<OutputDeviceInfo> {
+        let mut devices = Vec::new();
+        let default_name = self
+            .host
+            .default_output_device()
+            .and_then(|d| d.name().ok());
+        if let Ok(outputs) = self.host.output_devices() {
+            for dev in outputs {
+                if let Ok(name) = dev.name() {
+                    let is_default = default_name.as_ref().map(|d| d == &name).unwrap_or(false);
+                    devices.push(OutputDeviceInfo { name, is_default });
+                }
+            }
+        }
+        devices
+    }
+
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -65,6 +91,7 @@ impl AcousticSynthesizer {
 
     /// Synthesizes speech waveform from text, prosody parameters, and speaker voice archetype.
     #[must_use]
+    #[allow(clippy::too_many_arguments)]
     pub fn synthesize(
         &self,
         text: &str,
@@ -80,10 +107,7 @@ impl AcousticSynthesizer {
         let _word_count = words.len().max(1);
 
         // Syllable count estimation
-        let est_syllables: usize = words
-            .iter()
-            .map(|w| (w.chars().count() / 3).max(1))
-            .sum();
+        let est_syllables: usize = words.iter().map(|w| (w.chars().count() / 3).max(1)).sum();
 
         let base_syllable_ms = 180.0 / rate_multiplier.clamp(0.5, 2.5);
         let total_duration_ms = (est_syllables as f32 * base_syllable_ms).max(400.0) as u64;
@@ -92,10 +116,11 @@ impl AcousticSynthesizer {
         // Base fundamental pitch (F0)
         let base_f0 = match voice_id {
             "VP-MISTRESS" | "mistress_sovereign" => 220.0f32, // Sovereign feminine tenor
-            _ => 135.0f32,                                   // Fritz baritone neutral
+            _ => 135.0f32,                                    // Fritz baritone neutral
         };
         // Pitch shift formula: F = F0 * 2^(semitones / 12)
-        let f0 = (base_f0 * 2.0f32.powf(pitch_semitones.clamp(-12.0, 12.0) / 12.0)).clamp(60.0, 500.0);
+        let f0 =
+            (base_f0 * 2.0f32.powf(pitch_semitones.clamp(-12.0, 12.0) / 12.0)).clamp(60.0, 500.0);
 
         let mut samples = Vec::with_capacity(total_samples);
         let samples_per_syllable = (total_samples / est_syllables.max(1)).max(1);
@@ -125,7 +150,8 @@ impl AcousticSynthesizer {
             let gravity_f = (2.0 * std::f32::consts::PI * 110.0 * t).sin() * gravity * 0.4;
 
             // 4. Breathiness (aspiration pseudo-random noise)
-            let noise_val = (((s as f32 * 17.13).sin() * 43758.5453).fract() - 0.5) * breathiness * 0.18;
+            let noise_val =
+                (((s as f32 * 17.13).sin() * 43_758.547).fract() - 0.5) * breathiness * 0.18;
 
             let wave = (h1 + h2 + h3 + warmth_f + gravity_f + noise_val) * env * 0.45;
             samples.push(wave.clamp(-1.0, 1.0));
@@ -169,7 +195,8 @@ impl AcousticSynthesizer {
         let target_rate = default_config.sample_rate().0;
         let config: cpal::StreamConfig = default_config.into();
 
-        let playback_buffer: Vec<f32> = resample_mono_to_target(samples, SAMPLE_RATE_16K, target_rate, channels);
+        let playback_buffer: Vec<f32> =
+            resample_mono_to_target(samples, SAMPLE_RATE_16K, target_rate, channels);
         let cursor = Arc::new(Mutex::new(0usize));
         let buffer_arc = Arc::new(playback_buffer);
 
@@ -232,7 +259,7 @@ impl AcousticSynthesizer {
         // "fmt " subchunk
         wav.extend_from_slice(b"fmt ");
         wav.extend_from_slice(&16u32.to_le_bytes()); // subchunk1_size (16 for PCM)
-        wav.extend_from_slice(&1u16.to_le_bytes());  // audio_format (1 for PCM)
+        wav.extend_from_slice(&1u16.to_le_bytes()); // audio_format (1 for PCM)
         wav.extend_from_slice(&num_channels.to_le_bytes());
         wav.extend_from_slice(&sample_rate.to_le_bytes());
         wav.extend_from_slice(&byte_rate.to_le_bytes());

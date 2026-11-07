@@ -58,10 +58,7 @@ impl AudioCaptureManager {
     #[must_use]
     pub fn list_input_devices(&self) -> Vec<InputDeviceInfo> {
         let mut devices = Vec::new();
-        let default_name = self
-            .host
-            .default_input_device()
-            .and_then(|d| d.name().ok());
+        let default_name = self.host.default_input_device().and_then(|d| d.name().ok());
 
         if let Ok(input_devs) = self.host.input_devices() {
             for dev in input_devs {
@@ -179,8 +176,10 @@ impl AudioCaptureManager {
                 device.build_input_stream(
                     &config,
                     move |data: &[u16], _: &cpal::InputCallbackInfo| {
-                        let float_data: Vec<f32> =
-                            data.iter().map(|&s| (s as f32 - 32768.0) / 32768.0).collect();
+                        let float_data: Vec<f32> = data
+                            .iter()
+                            .map(|&s| (s as f32 - 32768.0) / 32768.0)
+                            .collect();
                         let mono_16k =
                             resample_and_downmix(&float_data, channels, source_sample_rate);
                         if let Ok(mut lock) = ring.lock() {

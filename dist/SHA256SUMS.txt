@@ -1,0 +1,1 @@
+a40445475b14bb808939bd6df98a1e61aa2addac243d08ca50e50058d5c910ca  speechcraft-0.1.0-windows-x64-portable.zip

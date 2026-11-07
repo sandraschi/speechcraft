@@ -51,7 +51,7 @@ impl VoiceprintEnclave {
         }
 
         let chunk_size = (samples.len() / VOICEPRINT_EMBEDDING_DIM).max(1);
-        for i in 0..VOICEPRINT_EMBEDDING_DIM {
+        for (i, slot) in embedding.iter_mut().enumerate() {
             let start = i * chunk_size;
             let end = (start + chunk_size).min(samples.len());
             let sub = samples.get(start..end).unwrap_or(&[]);
@@ -84,7 +84,7 @@ impl VoiceprintEnclave {
             };
 
             // Non-linear acoustic mapping
-            embedding[i] = (rms * 0.7 + zcr * 0.3).clamp(0.0, 1.0);
+            *slot = (rms * 0.7 + zcr * 0.3).clamp(0.0, 1.0);
         }
 
         // Normalize to unit sphere

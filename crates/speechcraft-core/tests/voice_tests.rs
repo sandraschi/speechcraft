@@ -66,7 +66,7 @@ fn test_speechcraft_spoken_timeline_and_voiceprints() {
     let mut engine = SpeechCraftEngine::new();
 
     let list_tl = engine.dispatch(Command::ListTimelineItems, &store);
-    assert!(list_tl["timeline"].as_array().unwrap().len() >= 1);
+    assert!(!list_tl["timeline"].as_array().unwrap().is_empty());
 
     let add_res = engine.dispatch(
         Command::AddTimelineItem {
