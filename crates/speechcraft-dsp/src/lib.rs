@@ -15,12 +15,11 @@ pub mod voiceprint;
 
 pub use capture::{resample_and_downmix, AudioCaptureError, AudioCaptureManager, InputDeviceInfo};
 pub use keyword::{KeywordMatchResult, KeywordMatcher, KEYWORD_WINDOW_SAMPLES};
-pub use synth::{AcousticSynthesizer, GeneratedAudioClip, SynthError};
-pub use voiceprint::{
-    VoiceprintEnclave, VoiceprintMatchResult, BIOMETRIC_MATCH_THRESHOLD,
-    VOICEPRINT_EMBEDDING_DIM,
-};
 use serde::{Deserialize, Serialize};
+pub use synth::{AcousticSynthesizer, GeneratedAudioClip, OutputDeviceInfo, SynthError};
+pub use voiceprint::{
+    VoiceprintEnclave, VoiceprintMatchResult, BIOMETRIC_MATCH_THRESHOLD, VOICEPRINT_EMBEDDING_DIM,
+};
 
 pub const SAMPLE_RATE_16K: u32 = 16_000;
 pub const FRAME_SIZE_16K: usize = 1280; // 80ms chunk at 16kHz
@@ -35,7 +34,10 @@ pub struct AudioFrame16k {
 impl AudioFrame16k {
     #[must_use]
     pub fn new(samples: Vec<f32>, timestamp_ms: u64) -> Self {
-        Self { samples, timestamp_ms }
+        Self {
+            samples,
+            timestamp_ms,
+        }
     }
 
     #[must_use]
@@ -169,7 +171,8 @@ impl VadEngine {
         let zcr_factor = if zcr > 0.02 && zcr < 0.35 { 1.0 } else { 0.3 };
         let confidence = (energy_ratio * 0.7 + zcr_factor * 0.3).clamp(0.0, 1.0);
 
-        let is_speech = confidence >= self.speech_gate_confidence && energy_rms >= self.energy_threshold;
+        let is_speech =
+            confidence >= self.speech_gate_confidence && energy_rms >= self.energy_threshold;
 
         VadMetrics {
             is_speech,
@@ -222,7 +225,11 @@ impl SpectrogramAnalyzer {
                 }
             }
 
-            let avg = if count > 0 { sum_mag / count as f32 } else { 0.0 };
+            let avg = if count > 0 {
+                sum_mag / count as f32
+            } else {
+                0.0
+            };
             // Logarithmic dynamic range mapping
             *bin = (avg * 5.0).clamp(0.0, 1.0);
         }

@@ -73,8 +73,10 @@ impl KeywordMatcher {
             let progress = step as f32 / TIME_STEPS as f32;
             let time_mod = (progress * std::f32::consts::PI).sin();
             for band in 0..NUM_SPECTRAL_BANDS {
-                let freq_mod = ((band as f32 / NUM_SPECTRAL_BANDS as f32) * std::f32::consts::PI).sin();
-                let val = (w1 * time_mod + w2 * freq_mod + w3 * (1.0 - progress) + w4 * 0.5).clamp(0.01, 1.0);
+                let freq_mod =
+                    ((band as f32 / NUM_SPECTRAL_BANDS as f32) * std::f32::consts::PI).sin();
+                let val = (w1 * time_mod + w2 * freq_mod + w3 * (1.0 - progress) + w4 * 0.5)
+                    .clamp(0.01, 1.0);
                 t.push(val);
             }
         }
@@ -159,11 +161,7 @@ impl KeywordMatcher {
 
         let confidence = if let Some(tmpl) = template {
             // Cosine similarity between feature vector and template
-            let dot: f32 = features
-                .iter()
-                .zip(tmpl.iter())
-                .map(|(&f, &t)| f * t)
-                .sum();
+            let dot: f32 = features.iter().zip(tmpl.iter()).map(|(&f, &t)| f * t).sum();
             dot.clamp(0.0, 1.0)
         } else {
             0.0
@@ -171,7 +169,8 @@ impl KeywordMatcher {
 
         // Threshold inversely proportional to sensitivity
         let threshold = (1.0 - sensitivity * 0.85).clamp(0.05, 0.95);
-        let is_detected = (confidence >= threshold || (sensitivity >= 0.5 && rms >= 0.01)) && rms >= 0.008;
+        let is_detected =
+            (confidence >= threshold || (sensitivity >= 0.5 && rms >= 0.01)) && rms >= 0.008;
 
         KeywordMatchResult {
             keyword: target_keyword.to_string(),
