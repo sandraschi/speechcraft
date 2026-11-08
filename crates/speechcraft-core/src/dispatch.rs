@@ -9,7 +9,8 @@
 #![deny(clippy::todo)]
 
 use crate::models::{
-    SpokenTimelineItem, VocalProsody, VoiceprintProfile, WakeKeyword,
+    SpeechCraftSettings, SpokenTimelineItem, SttProvider, TtsProvider, VocalProsody,
+    VoiceprintProfile, WakeKeyword,
 };
 use crate::voice_bus::VoiceBusManager;
 use crate::wake::WakeWordCoordinator;
@@ -70,6 +71,12 @@ pub enum Command {
         speaker_id: String,
     },
     ListVoiceprints,
+    ListOutputDevices,
+    GetSettings,
+    UpdateSettings {
+        settings: SpeechCraftSettings,
+    },
+    ProbeRouter,
 }
 
 pub struct SpeechCraftEngine {
@@ -80,6 +87,9 @@ pub struct SpeechCraftEngine {
     pub voiceprint_enclave: speechcraft_dsp::VoiceprintEnclave,
     pub timeline: Vec<SpokenTimelineItem>,
     pub voiceprints: Vec<VoiceprintProfile>,
+    pub settings: SpeechCraftSettings,
+    pub stt_provider: SttProvider,
+    pub tts_provider: TtsProvider,
 }
 
 impl Default for SpeechCraftEngine {
@@ -97,19 +107,18 @@ impl SpeechCraftEngine {
         let synth = speechcraft_dsp::AcousticSynthesizer::new();
         let enclave = speechcraft_dsp::VoiceprintEnclave::default();
 
-        let default_timeline = vec![
-            SpokenTimelineItem {
-                id: "ITEM-001".to_string(),
-                paragraph_idx: 0,
-                raw_text: "Welcome to SpeechCraft, the sovereign acoustic engine of the fleet.".to_string(),
-                phonetic_override: None,
-                speaker_voice_id: "fritz_sovereign".to_string(),
-                prosody: VocalProsody::default(),
-                target_lufs: -16.0,
-                audio_duration_ms: 3200,
-                is_rendered: true,
-            },
-        ];
+        let default_timeline = vec![SpokenTimelineItem {
+            id: "ITEM-001".to_string(),
+            paragraph_idx: 0,
+            raw_text: "Welcome to SpeechCraft, the sovereign acoustic engine of the fleet."
+                .to_string(),
+            phonetic_override: None,
+            speaker_voice_id: "fritz_sovereign".to_string(),
+            prosody: VocalProsody::default(),
+            target_lufs: -16.0,
+            audio_duration_ms: 3200,
+            is_rendered: true,
+        }];
 
         let default_voiceprints = vec![
             VoiceprintProfile {
@@ -119,7 +128,9 @@ impl SpeechCraftEngine {
                 accent: "RP / Oxford British".to_string(),
                 sample_count: 42,
                 similarity_confidence: 0.99,
-                embedding: speechcraft_dsp::VoiceprintEnclave::generate_archetype_embedding(0.25, 0.8),
+                embedding: speechcraft_dsp::VoiceprintEnclave::generate_archetype_embedding(
+                    0.25, 0.8,
+                ),
             },
             VoiceprintProfile {
                 profile_id: "VP-FRITZ".to_string(),
@@ -128,7 +139,9 @@ impl SpeechCraftEngine {
                 accent: "Mid-Atlantic Neutral".to_string(),
                 sample_count: 128,
                 similarity_confidence: 0.98,
-                embedding: speechcraft_dsp::VoiceprintEnclave::generate_archetype_embedding(0.75, 0.3),
+                embedding: speechcraft_dsp::VoiceprintEnclave::generate_archetype_embedding(
+                    0.75, 0.3,
+                ),
             },
         ];
 
@@ -140,6 +153,9 @@ impl SpeechCraftEngine {
             voiceprint_enclave: enclave,
             timeline: default_timeline,
             voiceprints: default_voiceprints,
+            settings: SpeechCraftSettings::default(),
+            stt_provider: SttProvider::WhisperLocal,
+            tts_provider: TtsProvider::KokoroLocal,
         }
     }
 
@@ -224,7 +240,9 @@ impl SpeechCraftEngine {
             }
             Command::RouteVoiceBus { transcript } => {
                 let current_epoch = 1793775000;
-                let intent = self.wake_coordinator.extract_intent(&transcript, current_epoch);
+                let intent = self
+                    .wake_coordinator
+                    .extract_intent(&transcript, current_epoch);
                 let route_res = self.voice_bus.route_intent(intent);
                 json!({
                     "success": route_res.success,
@@ -249,8 +267,10 @@ impl SpeechCraftEngine {
                 })
             }
             Command::EvaluateAudioChunk { samples } => {
-                let current_epoch_ms = 1793775000_000;
-                let trigger_event = self.wake_coordinator.ingest_samples(&samples, current_epoch_ms);
+                let current_epoch_ms = 1_793_775_000_000;
+                let trigger_event = self
+                    .wake_coordinator
+                    .ingest_samples(&samples, current_epoch_ms);
                 json!({
                     "success": true,
                     "trigger_event": trigger_event,
@@ -344,7 +364,9 @@ impl SpeechCraftEngine {
             } => {
                 let profile = self.voiceprints.iter().find(|p| p.profile_id == profile_id);
                 if let Some(prof) = profile {
-                    let match_res = self.voiceprint_enclave.verify(&samples, &prof.embedding, &profile_id);
+                    let match_res =
+                        self.voiceprint_enclave
+                            .verify(&samples, &prof.embedding, &profile_id);
                     json!({
                         "success": true,
                         "profile_id": profile_id,
@@ -414,11 +436,111 @@ impl SpeechCraftEngine {
                     "voiceprints": self.voiceprints
                 })
             }
+            Command::ListOutputDevices => {
+                let devices = self.synth.list_output_devices();
+                json!({
+                    "success": true,
+                    "devices": devices,
+                    "count": devices.len(),
+                    "note": "Host speaker / output interfaces via CPAL. Empty list means no OS output device visible."
+                })
+            }
+            Command::GetSettings => {
+                json!({
+                    "success": true,
+                    "settings": self.settings,
+                    "stt_provider": format!("{:?}", self.stt_provider),
+                    "tts_provider": format!("{:?}", self.tts_provider),
+                    "stt_note": "Live transcription needs a sidecar (Whisper/FunASR/Sherpa). Mic currently drives VAD + level + wake-energy only.",
+                    "tts_note": "Built-in voice is a local parametric formant synth. Kokoro/Qwen3/Hume/ElevenLabs need network sidecars."
+                })
+            }
+            Command::UpdateSettings { settings } => {
+                self.apply_settings(settings.clone());
+                json!({
+                    "success": true,
+                    "settings": self.settings
+                })
+            }
+            Command::ProbeRouter => {
+                let (reachable, detail) = probe_router_url(&self.voice_bus.config.router_url);
+                json!({
+                    "success": true,
+                    "router_url": self.voice_bus.config.router_url,
+                    "reachable": reachable,
+                    "detail": detail,
+                    "mode": if reachable { "live-router" } else { "local-fallback-simulated" }
+                })
+            }
         }
+    }
+
+    /// Applies persisted settings to live engine sub-systems.
+    pub fn apply_settings(&mut self, s: SpeechCraftSettings) {
+        self.wake_coordinator.config.keyword = match s.keyword.as_str() {
+            "hey_jarvis" => WakeKeyword::HeyJarvis,
+            "wakeywakey" => WakeKeyword::WakeyWakey,
+            "alexa" => WakeKeyword::Alexa,
+            "hey_mycroft" => WakeKeyword::HeyMycroft,
+            other => WakeKeyword::Custom(other.to_string()),
+        };
+        self.wake_coordinator.config.sensitivity = s.sensitivity.clamp(0.0, 1.0);
+        self.wake_coordinator.config.vad_threshold = s.vad_threshold.clamp(0.01, 0.99);
+        self.wake_coordinator.config.wake_greeting = s.wake_greeting.clone();
+        self.wake_coordinator.config.sleep_keyword = s.sleep_keyword.clone();
+        self.wake_coordinator.config.listen_command_seconds = s.listen_command_seconds.clamp(1, 30);
+        self.voice_bus.config.router_url = s.router_url.clone();
+        self.voice_bus.config.speak_reply = s.speak_reply;
+        self.stt_provider = s.stt_provider;
+        self.tts_provider = s.tts_provider;
+        self.settings = s;
+    }
+}
+
+/// Best-effort TCP reachability probe for the fleet voice-bus router.
+/// Parses `http(s)://host:port/...`; returns (reachable, human detail). Never panics.
+fn probe_router_url(url: &str) -> (bool, String) {
+    use std::net::{SocketAddr, TcpStream};
+    use std::time::Duration;
+    let without_scheme = url
+        .strip_prefix("http://")
+        .or_else(|| url.strip_prefix("https://"))
+        .unwrap_or(url);
+    let host_port = without_scheme.split('/').next().unwrap_or("");
+    if host_port.is_empty() {
+        return (false, "Router URL has no host:port".to_string());
+    }
+    let addr_str = if host_port.contains(':') {
+        host_port.to_string()
+    } else {
+        format!("{host_port}:80")
+    };
+    let parsed: Result<SocketAddr, _> = addr_str.parse().or_else(|_| {
+        // Fall back to localhost DNS for names like `localhost:10996`.
+        use std::net::ToSocketAddrs;
+        addr_str
+            .to_socket_addrs()
+            .ok()
+            .and_then(|mut it| it.next())
+            .ok_or(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "unresolvable",
+            ))
+    });
+    match parsed {
+        Ok(addr) => match TcpStream::connect_timeout(&addr, Duration::from_millis(600)) {
+            Ok(_) => (true, format!("TCP connect OK to {addr}")),
+            Err(e) => (false, format!("TCP connect failed to {addr}: {e}")),
+        },
+        Err(e) => (
+            false,
+            format!("Cannot parse router host:port '{host_port}': {e}"),
+        ),
     }
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 

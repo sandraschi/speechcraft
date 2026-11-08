@@ -27,23 +27,12 @@ pub struct VoiceBusRouteResult {
     pub error_msg: Option<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct VoiceBusManager {
     pub config: VoiceBusConfig,
     pub routed_intents: Vec<SpeechIntent>,
     pub active_timers: Vec<AudibleTimer>,
     pub last_reply: Option<String>,
-}
-
-impl Default for VoiceBusManager {
-    fn default() -> Self {
-        Self {
-            config: VoiceBusConfig::default(),
-            routed_intents: Vec::new(),
-            active_timers: Vec::new(),
-            last_reply: None,
-        }
-    }
 }
 
 impl VoiceBusManager {

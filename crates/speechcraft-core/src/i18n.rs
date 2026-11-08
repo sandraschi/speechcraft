@@ -279,8 +279,12 @@ pub fn t(key: I18nKey, locale: AppLocale) -> &'static str {
         (I18nKey::TranscribeAudio, AppLocale::Zh) => "语音识别转录 (STT)",
 
         (I18nKey::ExportBroadcastMaster, AppLocale::En) => "Export Broadcast Master (-16 LUFS)",
-        (I18nKey::ExportBroadcastMaster, AppLocale::De) => "Broadcast-Master exportieren (-16 LUFS)",
-        (I18nKey::ExportBroadcastMaster, AppLocale::Fr) => "Exporter le master de diffusion (-16 LUFS)",
+        (I18nKey::ExportBroadcastMaster, AppLocale::De) => {
+            "Broadcast-Master exportieren (-16 LUFS)"
+        }
+        (I18nKey::ExportBroadcastMaster, AppLocale::Fr) => {
+            "Exporter le master de diffusion (-16 LUFS)"
+        }
         (I18nKey::ExportBroadcastMaster, AppLocale::Es) => "Exportar máster de emisión (-16 LUFS)",
         (I18nKey::ExportBroadcastMaster, AppLocale::Ja) => "放送基準マスター出力 (-16 LUFS)",
         (I18nKey::ExportBroadcastMaster, AppLocale::Ko) => "방송용 마스터 내보내기 (-16 LUFS)",
@@ -298,7 +302,9 @@ pub fn t(key: I18nKey, locale: AppLocale) -> &'static str {
         (I18nKey::HardwareIngress, AppLocale::En) => "Hardware Audio Ingress & Microphone Stream",
         (I18nKey::HardwareIngress, AppLocale::De) => "Hardware-Audio-Eingang & Mikrofon-Stream",
         (I18nKey::HardwareIngress, AppLocale::Fr) => "Entrée audio matérielle & flux microphone",
-        (I18nKey::HardwareIngress, AppLocale::Es) => "Entrada de audio hardware y flujo de micrófono",
+        (I18nKey::HardwareIngress, AppLocale::Es) => {
+            "Entrada de audio hardware y flujo de micrófono"
+        }
         (I18nKey::HardwareIngress, AppLocale::Ja) => "ハードウェア音声入力 & マイクストリーム",
         (I18nKey::HardwareIngress, AppLocale::Ko) => "하드웨어 오디오 입력 및 마이크 스트림",
         (I18nKey::HardwareIngress, AppLocale::Zh) => "硬件音频输入与麦克风流",
@@ -337,8 +343,12 @@ pub fn t(key: I18nKey, locale: AppLocale) -> &'static str {
 
         (I18nKey::VoiceCommandBusTitle, AppLocale::En) => "Voice Command Bus (Router: 10996)",
         (I18nKey::VoiceCommandBusTitle, AppLocale::De) => "Sprachbefehl-Bus (Router: 10996)",
-        (I18nKey::VoiceCommandBusTitle, AppLocale::Fr) => "Bus de commandes vocales (Routeur: 10996)",
-        (I18nKey::VoiceCommandBusTitle, AppLocale::Es) => "Bus de comandos de voz (Enrutador: 10996)",
+        (I18nKey::VoiceCommandBusTitle, AppLocale::Fr) => {
+            "Bus de commandes vocales (Routeur: 10996)"
+        }
+        (I18nKey::VoiceCommandBusTitle, AppLocale::Es) => {
+            "Bus de comandos de voz (Enrutador: 10996)"
+        }
         (I18nKey::VoiceCommandBusTitle, AppLocale::Ja) => "音声コマンドバス (ルーター: 10996)",
         (I18nKey::VoiceCommandBusTitle, AppLocale::Ko) => "음성 명령 버스 (라우터: 10996)",
         (I18nKey::VoiceCommandBusTitle, AppLocale::Zh) => "语音指令总线 (路由: 10996)",
@@ -379,7 +389,9 @@ pub fn t(key: I18nKey, locale: AppLocale) -> &'static str {
         (I18nKey::StatusReady, AppLocale::En) => "SpeechCraft Acoustic Studio Ready (Port 14132)",
         (I18nKey::StatusReady, AppLocale::De) => "SpeechCraft Akustik-Studio bereit (Port 14132)",
         (I18nKey::StatusReady, AppLocale::Fr) => "Studio acoustique SpeechCraft prêt (Port 14132)",
-        (I18nKey::StatusReady, AppLocale::Es) => "Estudio acústico SpeechCraft listo (Puerto 14132)",
+        (I18nKey::StatusReady, AppLocale::Es) => {
+            "Estudio acústico SpeechCraft listo (Puerto 14132)"
+        }
         (I18nKey::StatusReady, AppLocale::Ja) => "SpeechCraft 音響スタジオ 準備完了 (ポート 14132)",
         (I18nKey::StatusReady, AppLocale::Ko) => "SpeechCraft 음향 스튜디오 준비완료 (포트 14132)",
         (I18nKey::StatusReady, AppLocale::Zh) => "SpeechCraft 终极声学工作室已就绪 (端口 14132)",
