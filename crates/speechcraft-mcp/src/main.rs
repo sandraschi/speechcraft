@@ -143,20 +143,64 @@ pub fn tools_list() -> Value {
                 },
                 "required": ["action"]
             }
+        },
+        {
+            "name": "speechcraft_list_output_devices",
+            "description": "List host speaker / audio output devices (CPAL). Empty means no OS output visible.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {}
+            }
+        },
+        {
+            "name": "speechcraft_get_settings",
+            "description": "Get persisted studio settings (audio, wake, bus router, STT/TTS providers, locale, theme) plus honesty notes about live vs simulated paths.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {}
+            }
+        },
+        {
+            "name": "speechcraft_probe_router",
+            "description": "TCP-probe the fleet voice-bus router (default 127.0.0.1:10996). Returns live-router vs local-fallback-simulated mode.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {}
+            }
         }
     ])
 }
 
-pub fn call_tool(engine: &mut SpeechCraftEngine, store: &DatabaseStore, name: &str, args: &Value) -> Value {
+pub fn call_tool(
+    engine: &mut SpeechCraftEngine,
+    store: &DatabaseStore,
+    name: &str,
+    args: &Value,
+) -> Value {
     match name {
         "speechcraft_status" => engine.dispatch(Command::Status, store),
         "speechcraft_list_audio_devices" => engine.dispatch(Command::ListAudioDevices, store),
         "speechcraft_configure_wake" => {
-            let keyword = args.get("keyword").and_then(|v| v.as_str()).map(|s| s.to_string());
-            let sensitivity = args.get("sensitivity").and_then(|v| v.as_f64()).map(|f| f as f32);
-            let vad_threshold = args.get("vad_threshold").and_then(|v| v.as_f64()).map(|f| f as f32);
-            let wake_greeting = args.get("wake_greeting").and_then(|v| v.as_str()).map(|s| s.to_string());
-            let sleep_keyword = args.get("sleep_keyword").and_then(|v| v.as_str()).map(|s| s.to_string());
+            let keyword = args
+                .get("keyword")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+            let sensitivity = args
+                .get("sensitivity")
+                .and_then(|v| v.as_f64())
+                .map(|f| f as f32);
+            let vad_threshold = args
+                .get("vad_threshold")
+                .and_then(|v| v.as_f64())
+                .map(|f| f as f32);
+            let wake_greeting = args
+                .get("wake_greeting")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+            let sleep_keyword = args
+                .get("sleep_keyword")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
             engine.dispatch(
                 Command::ConfigureWakeWord {
                     keyword,
@@ -170,17 +214,48 @@ pub fn call_tool(engine: &mut SpeechCraftEngine, store: &DatabaseStore, name: &s
             )
         }
         "speechcraft_route_intent" => {
-            let transcript = args.get("transcript").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let transcript = args
+                .get("transcript")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
             engine.dispatch(Command::RouteVoiceBus { transcript }, store)
         }
         "speechcraft_synthesize" => {
-            let text = args.get("text").and_then(|v| v.as_str()).unwrap_or("").to_string();
-            let voice_id = args.get("voice_id").and_then(|v| v.as_str()).map(|s| s.to_string());
-            let pitch = args.get("pitch_semitones").and_then(|v| v.as_f64()).map(|f| f as f32).unwrap_or(0.0);
-            let rate = args.get("rate_multiplier").and_then(|v| v.as_f64()).map(|f| f as f32).unwrap_or(1.0);
-            let warmth = args.get("warmth").and_then(|v| v.as_f64()).map(|f| f as f32).unwrap_or(0.5);
-            let breathiness = args.get("breathiness").and_then(|v| v.as_f64()).map(|f| f as f32).unwrap_or(0.2);
-            let gravity = args.get("gravity").and_then(|v| v.as_f64()).map(|f| f as f32).unwrap_or(0.5);
+            let text = args
+                .get("text")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let voice_id = args
+                .get("voice_id")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+            let pitch = args
+                .get("pitch_semitones")
+                .and_then(|v| v.as_f64())
+                .map(|f| f as f32)
+                .unwrap_or(0.0);
+            let rate = args
+                .get("rate_multiplier")
+                .and_then(|v| v.as_f64())
+                .map(|f| f as f32)
+                .unwrap_or(1.0);
+            let warmth = args
+                .get("warmth")
+                .and_then(|v| v.as_f64())
+                .map(|f| f as f32)
+                .unwrap_or(0.5);
+            let breathiness = args
+                .get("breathiness")
+                .and_then(|v| v.as_f64())
+                .map(|f| f as f32)
+                .unwrap_or(0.2);
+            let gravity = args
+                .get("gravity")
+                .and_then(|v| v.as_f64())
+                .map(|f| f as f32)
+                .unwrap_or(0.5);
             let play_audio = args.get("play_audio").and_then(|v| v.as_bool());
 
             let prosody = VocalProsody {
@@ -202,8 +277,15 @@ pub fn call_tool(engine: &mut SpeechCraftEngine, store: &DatabaseStore, name: &s
             )
         }
         "speechcraft_export_wav" => {
-            let text = args.get("text").and_then(|v| v.as_str()).unwrap_or("").to_string();
-            let voice_id = args.get("voice_id").and_then(|v| v.as_str()).map(|s| s.to_string());
+            let text = args
+                .get("text")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let voice_id = args
+                .get("voice_id")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
             engine.dispatch(
                 Command::ExportWav {
                     text,
@@ -214,21 +296,49 @@ pub fn call_tool(engine: &mut SpeechCraftEngine, store: &DatabaseStore, name: &s
             )
         }
         "speechcraft_verify_voiceprint" => {
-            let profile_id = args.get("profile_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let profile_id = args
+                .get("profile_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
             let samples = args
                 .get("samples")
                 .and_then(|v| v.as_array())
-                .map(|arr| arr.iter().filter_map(|x| x.as_f64().map(|f| f as f32)).collect())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|x| x.as_f64().map(|f| f as f32))
+                        .collect()
+                })
                 .unwrap_or_else(|| vec![0.1f32; 1600]);
-            engine.dispatch(Command::VerifyVoiceprint { profile_id, samples }, store)
+            engine.dispatch(
+                Command::VerifyVoiceprint {
+                    profile_id,
+                    samples,
+                },
+                store,
+            )
         }
         "speechcraft_list_voiceprints" => engine.dispatch(Command::ListVoiceprints, store),
+        "speechcraft_list_output_devices" => engine.dispatch(Command::ListOutputDevices, store),
+        "speechcraft_get_settings" => engine.dispatch(Command::GetSettings, store),
+        "speechcraft_probe_router" => engine.dispatch(Command::ProbeRouter, store),
         "speechcraft_timeline_manage" => {
-            let action = args.get("action").and_then(|v| v.as_str()).unwrap_or("list");
+            let action = args
+                .get("action")
+                .and_then(|v| v.as_str())
+                .unwrap_or("list");
             match action {
                 "add" => {
-                    let text = args.get("text").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                    let speaker_id = args.get("speaker_id").and_then(|v| v.as_str()).unwrap_or("fritz_sovereign").to_string();
+                    let text = args
+                        .get("text")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    let speaker_id = args
+                        .get("speaker_id")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("fritz_sovereign")
+                        .to_string();
                     engine.dispatch(Command::AddTimelineItem { text, speaker_id }, store)
                 }
                 _ => engine.dispatch(Command::ListTimelineItems, store),
@@ -241,7 +351,9 @@ pub fn call_tool(engine: &mut SpeechCraftEngine, store: &DatabaseStore, name: &s
 /// Hand-rolled MCP 2024-11-05 line-delimited stdio framing loop.
 /// Stdio invariant: stdout is 100% JSON-RPC. Diagnostics go to stderr.
 fn run_mcp_stdio(engine: &mut SpeechCraftEngine, store: &DatabaseStore) {
-    eprintln!("[speechcraft-mcp] Starting MCP server stdio loop (MCP 2024-11-05, Port {CONTROL_PORT})");
+    eprintln!(
+        "[speechcraft-mcp] Starting MCP server stdio loop (MCP 2024-11-05, Port {CONTROL_PORT})"
+    );
     let stdin = std::io::stdin();
     let mut stdout = std::io::stdout();
 
@@ -381,19 +493,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // 1. Verify tools list
         let tools = tools_list();
         let tools_len = tools.as_array().map(|a| a.len()).unwrap_or(0);
-        if tools_len < 8 {
+        if tools_len < 11 {
             return Err("speechcraft-mcp smoke failed: incomplete tools list".into());
         }
 
-        // 2. Verify all core tools via call_tool
+        // 2. Verify all core tools via call_tool (need >= 11 tools now)
         let status = call_tool(&mut engine, &store, "speechcraft_status", &json!({}));
-        let ok = status.get("success").and_then(|v| v.as_bool()).unwrap_or(false);
+        let ok = status
+            .get("success")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         if !ok {
             return Err("speechcraft-mcp smoke failed: status tool".into());
         }
 
-        let dev_status = call_tool(&mut engine, &store, "speechcraft_list_audio_devices", &json!({}));
-        let dev_ok = dev_status.get("success").and_then(|v| v.as_bool()).unwrap_or(false);
+        let dev_status = call_tool(
+            &mut engine,
+            &store,
+            "speechcraft_list_audio_devices",
+            &json!({}),
+        );
+        let dev_ok = dev_status
+            .get("success")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         if !dev_ok {
             return Err("speechcraft-mcp smoke failed: list audio devices tool".into());
         }
@@ -404,7 +527,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "speechcraft_route_intent",
             &json!({ "transcript": "robotcraft forward 10" }),
         );
-        let route_ok = route_res.get("success").and_then(|v| v.as_bool()).unwrap_or(false);
+        let route_ok = route_res
+            .get("success")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         if !route_ok {
             return Err("speechcraft-mcp smoke failed: route intent tool".into());
         }
@@ -415,7 +541,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "speechcraft_synthesize",
             &json!({ "text": "Testing MCP synthesis", "play_audio": false }),
         );
-        let synth_ok = synth.get("success").and_then(|v| v.as_bool()).unwrap_or(false);
+        let synth_ok = synth
+            .get("success")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         if !synth_ok {
             return Err("speechcraft-mcp smoke failed: synthesis tool".into());
         }
@@ -426,7 +555,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "speechcraft_export_wav",
             &json!({ "text": "Mastered WAV broadcast test" }),
         );
-        let wav_ok = wav.get("success").and_then(|v| v.as_bool()).unwrap_or(false);
+        let wav_ok = wav
+            .get("success")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         if !wav_ok {
             return Err("speechcraft-mcp smoke failed: wav export tool".into());
         }

@@ -122,9 +122,8 @@ impl WakeWordCoordinator {
         let (entity, command) = if let Some((ent, cmd)) = trimmed.split_once(' ') {
             let ent_lower = ent.to_lowercase();
             match ent_lower.as_str() {
-                "fritz" | "codercraft" | "robotcraft" | "opencode" | "calibre" | "plexy" | "dreame" | "boomy" => {
-                    (ent_lower, cmd.to_string())
-                }
+                "fritz" | "codercraft" | "robotcraft" | "opencode" | "calibre" | "plexy"
+                | "dreame" | "boomy" => (ent_lower, cmd.to_string()),
                 _ => ("fritz".to_string(), trimmed.to_string()),
             }
         } else {

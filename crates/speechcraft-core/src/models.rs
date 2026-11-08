@@ -108,10 +108,10 @@ pub enum TtsProvider {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VocalProsody {
     pub pitch_semitones: f32, // -12.0 .. +12.0
-    pub rate_multiplier: f32,  // 0.5 .. 2.0
-    pub warmth: f32,           // 0.0 .. 1.0 (Low-mid formant boost)
-    pub breathiness: f32,      // 0.0 .. 1.0 (Airy high-frequency aspiration)
-    pub gravity: f32,          // 0.0 .. 1.0 (Chest resonance)
+    pub rate_multiplier: f32, // 0.5 .. 2.0
+    pub warmth: f32,          // 0.0 .. 1.0 (Low-mid formant boost)
+    pub breathiness: f32,     // 0.0 .. 1.0 (Airy high-frequency aspiration)
+    pub gravity: f32,         // 0.0 .. 1.0 (Chest resonance)
 }
 
 impl Default for VocalProsody {
@@ -150,6 +150,49 @@ pub struct VoiceprintProfile {
     pub sample_count: usize,
     pub similarity_confidence: f32,
     pub embedding: Vec<f32>,
+}
+
+/// Persisted studio settings (audio, wake, bus, providers, UI).
+/// Stored as JSON in `speechcraft-settings.json` next to the working dir.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SpeechCraftSettings {
+    pub input_device_name: Option<String>,
+    pub output_device_name: Option<String>,
+    pub keyword: String,
+    pub sensitivity: f32,
+    pub vad_threshold: f32,
+    pub wake_greeting: String,
+    pub sleep_keyword: String,
+    pub listen_command_seconds: u32,
+    pub router_url: String,
+    pub speak_reply: bool,
+    pub stt_provider: SttProvider,
+    pub tts_provider: TtsProvider,
+    pub locale_code: String,
+    pub dark_theme: bool,
+}
+
+impl Default for SpeechCraftSettings {
+    fn default() -> Self {
+        let wake = WakeWordConfig::default();
+        let bus = VoiceBusConfig::default();
+        Self {
+            input_device_name: None,
+            output_device_name: None,
+            keyword: wake.keyword.as_str().to_string(),
+            sensitivity: wake.sensitivity,
+            vad_threshold: wake.vad_threshold,
+            wake_greeting: wake.wake_greeting,
+            sleep_keyword: wake.sleep_keyword,
+            listen_command_seconds: wake.listen_command_seconds,
+            router_url: bus.router_url,
+            speak_reply: bus.speak_reply,
+            stt_provider: SttProvider::WhisperLocal,
+            tts_provider: TtsProvider::KokoroLocal,
+            locale_code: "en".to_string(),
+            dark_theme: true,
+        }
+    }
 }
 
 /// Synthesized audio clip metadata.
