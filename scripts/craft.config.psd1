@@ -14,6 +14,6 @@
     McpArgs     = @()
     McpSmoke    = @()
     Installer   = $true
-    Mcpb        = $false
+    Mcpb        = $true
     AppArgs     = @('--control', '14132')
 }

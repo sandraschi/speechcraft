@@ -1,0 +1,79 @@
+{
+  "manifest_version": "0.2",
+  "name": "speechcraft",
+  "display_name": "SpeechCraft",
+  "version": "__VERSION__",
+  "description": "SpeechCraft MCP server (12 tools).",
+  "author": {
+    "name": "Sandra Schipal",
+    "url": "https://github.com/sandraschi"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sandraschi/speechcraft"
+  },
+  "license": "MIT OR Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "speechcraft-mcp.exe",
+    "mcp_config": {
+      "command": "${__dirname}/speechcraft-mcp.exe",
+      "args": []
+    }
+  },
+  "compatibility": {
+    "platforms": [
+      "win32"
+    ]
+  },
+  "tools": [
+    {
+      "name": "speechcraft_status",
+      "description": "Get SpeechCraft acoustic studio status, active wake word, sensitivity, and registered control port 14132"
+    },
+    {
+      "name": "speechcraft_list_audio_devices",
+      "description": "List all host physical audio input devices (microphones, webcams, audio interfaces)"
+    },
+    {
+      "name": "speechcraft_configure_wake",
+      "description": "Configure wake word keyword (wakeywakey, hey_jarvis, alexa, hey_mycroft), sensitivity (0.0..1.0), and spoken greeting"
+    },
+    {
+      "name": "speechcraft_route_intent",
+      "description": "Route natural voice command to fleet agent command bus (fritz, codercraft, robotcraft, calibre, plexy)"
+    },
+    {
+      "name": "speechcraft_synthesize",
+      "description": "Synthesize vocal speech from text with prosody shaping and optional audio output playback"
+    },
+    {
+      "name": "speechcraft_export_wav",
+      "description": "Generate broadcast-mastered EBU R128 (-16.0 LUFS) WAV byte buffer metrics"
+    },
+    {
+      "name": "speechcraft_verify_voiceprint",
+      "description": "Biometrically authenticate acoustic samples against enrolled local voiceprint profiles"
+    },
+    {
+      "name": "speechcraft_list_voiceprints",
+      "description": "List enrolled biometric voiceprint profiles and 32-dim embedding telemetry"
+    },
+    {
+      "name": "speechcraft_timeline_manage",
+      "description": "Manage spoken literature audiobook timeline paragraphs (list or append)"
+    },
+    {
+      "name": "speechcraft_list_output_devices",
+      "description": "List host speaker / audio output devices (CPAL). Empty means no OS output visible."
+    },
+    {
+      "name": "speechcraft_get_settings",
+      "description": "Get persisted studio settings (audio, wake, bus router, STT/TTS providers, locale, theme) plus honesty notes about live vs simulated paths."
+    },
+    {
+      "name": "speechcraft_probe_router",
+      "description": "TCP-probe the fleet voice-bus router (default 127.0.0.1:10996). Returns live-router vs local-fallback-simulated mode."
+    }
+  ]
+}
