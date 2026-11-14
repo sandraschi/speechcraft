@@ -1,5 +1,10 @@
 # SpeechCraft
 
+![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)
+![Rust 1.90+](https://img.shields.io/badge/rust-1.90%2B-orange?logo=rust)
+![MCP stdio](https://img.shields.io/badge/MCP-stdio-purple)
+![ArtCraft harness](https://img.shields.io/badge/ArtCraft-harness-green)
+
 > Local-First Acoustic Studio, Real-Time Wake Word Coordinator & Neural Voice Command Bus.
 
 SpeechCraft delivers low-latency, zero-panic, pure-Rust voice capabilities to the ArtCraft fleet, uniting wake word detection, ambient speech recognition, prosody shaping, and broadcast audio mastering on Port **14132**.

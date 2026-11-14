@@ -386,6 +386,9 @@ impl eframe::App for SpeechCraftApp {
             visuals.panel_fill = Color32::from_rgb(10, 15, 29); // Deep Obsidian Slate
             visuals.window_fill = Color32::from_rgb(13, 20, 36);
             visuals.extreme_bg_color = Color32::from_rgb(6, 10, 20);
+            let ink = Color32::from_rgb(242, 246, 252);
+            visuals.override_text_color = Some(ink);
+            visuals.weak_text_color = Some(Color32::from_rgb(203, 213, 225));
 
             // High-contrast non-interactive background and crisp text
             visuals.widgets.noninteractive.bg_fill = Color32::from_rgb(15, 23, 42);
@@ -416,8 +419,17 @@ impl eframe::App for SpeechCraftApp {
             ui.ctx().set_visuals(visuals);
         } else {
             let mut visuals = egui::Visuals::light();
-            visuals.panel_fill = Color32::from_rgb(248, 250, 252);
-            visuals.window_fill = Color32::from_rgb(255, 255, 255);
+            let ink = Color32::BLACK;
+            visuals.override_text_color = Some(ink);
+            visuals.weak_text_color = Some(ink);
+            visuals.panel_fill = Color32::WHITE;
+            visuals.window_fill = Color32::WHITE;
+            visuals.extreme_bg_color = Color32::WHITE;
+            visuals.faint_bg_color = Color32::WHITE;
+            visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, ink);
+            visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, ink);
+            visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.5, ink);
+            visuals.widgets.active.fg_stroke = egui::Stroke::new(1.5, ink);
             visuals.widgets.noninteractive.bg_stroke =
                 egui::Stroke::new(1.0, Color32::from_rgb(203, 213, 225));
             ui.ctx().set_visuals(visuals);
